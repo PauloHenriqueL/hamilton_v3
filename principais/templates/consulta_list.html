@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block title %}
+ALLOS - Lista de Consultas
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="display-4">Lista de Consultas</h3>
+    <a href="{% url 'consulta-create' %}" class="btn btn-primary">
+      <i class="fas fa-plus"></i> Nova Consulta
+    </a>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-3">
+        <div class="col-md-6">
+          <label for="nome" class="form-label">Buscar por Nome</label>
+          <input type="text" name="nome" id="nome" class="form-control" 
+                 value="{{ current_search }}" placeholder="Nome do paciente ou terapeuta">
+        </div>
+        <div class="col-md-4">
+          <label for="order_by" class="form-label">Ordenar por</label>
+          <select name="order_by" id="order_by" class="form-control">
+            <option value="-dat_consulta" {% if current_order == '-dat_consulta' %}selected{% endif %}>Data (Mais recente)</option>
+            <option value="dat_consulta" {% if current_order == 'dat_consulta' %}selected{% endif %}>Data (Mais antiga)</option>
+            <option value="fk_paciente__nome" {% if current_order == 'fk_paciente__nome' %}selected{% endif %}>Paciente (A-Z)</option>
+            <option value="-fk_paciente__nome" {% if current_order == '-fk_paciente__nome' %}selected{% endif %}>Paciente (Z-A)</option>
+            <option value="fk_terapeuta__fk_associado__nome" {% if current_order == 'fk_terapeuta__fk_associado__nome' %}selected{% endif %}>Terapeuta (A-Z)</option>
+            <option value="-fk_terapeuta__fk_associado__nome" {% if current_order == '-fk_terapeuta__fk_associado__nome' %}selected{% endif %}>Terapeuta (Z-A)</option>
+            <option value="-is_realizado" {% if current_order == '-is_realizado' %}selected{% endif %}>Realizadas primeiro</option>
+            <option value="is_realizado" {% if current_order == 'is_realizado' %}selected{% endif %}>Não realizadas primeiro</option>
+          </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <button type="submit" class="btn btn-secondary w-100">Filtrar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tabela de Consultas -->
+  <div class="card">
+    <div class="card-body">
+      {% if consultas %}
+        <div class="table-responsive">
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Data</th>
+                <th>Paciente</th>
+                <th>Terapeuta</th>
+                <th>Valor</th>
+                <th>Status</th>
+                <th>Valor Pago</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for consulta in consultas %}
+                <tr>
+                  <td>{{ consulta.pk_consulta }}</td>
+                  <td>{{ consulta.dat_consulta|date:"d/m/Y" }}</td>
+                  <td>{{ consulta.fk_paciente.nome }}</td>
+                  <td>{{ consulta.fk_terapeuta.fk_associado.nome }}</td>
+                  <td>R$ {{ consulta.vlr_consulta|floatformat:2 }}</td>
+                  <td>
+                    {% if consulta.is_realizado %}
+                      <span class="badge bg-success">Realizada</span>
+                    {% elif consulta.is_realizado is False %}
+                      <span class="badge bg-danger">Não Realizada</span>
+                    {% else %}
+                      <span class="badge bg-warning">Pendente</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if consulta.vlr_pago %}
+                      R$ {{ consulta.vlr_pago|floatformat:2 }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td>
+                    <a href="{% url 'consulta-detail' consulta.pk_consulta %}" 
+                       class="btn btn-sm btn-info me-1" title="Ver Detalhes">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                    <a href="{% url 'consulta-update' consulta.pk_consulta %}" 
+                       class="btn btn-sm btn-warning me-1" title="Editar">
+                      <i class="bi bi-pencil"></i>
+                    </a>
+                    <a href="{% url 'consulta-delete' consulta.pk_consulta %}" 
+                       class="btn btn-sm btn-danger" title="Excluir">
+                      <i class="bi bi-trash"></i>
+                    </a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Paginação -->
+        {% if is_paginated %}
+          <nav aria-label="Navegação de páginas">
+            <ul class="pagination justify-content-center">
+              {% if page_obj.has_previous %}
+                <li class="page-item">
+                  <a class="page-link" href="?page=1{% if current_search %}&nome={{ current_search }}{% endif %}{% if current_order %}&order_by={{ current_order }}{% endif %}">Primeira</a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_search %}&nome={{ current_search }}{% endif %}{% if current_order %}&order_by={{ current_order }}{% endif %}">Anterior</a>
+                </li>
+              {% endif %}
+
+              <li class="page-item active">
+                <span class="page-link">{{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+              </li>
+
+              {% if page_obj.has_next %}
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_search %}&nome={{ current_search }}{% endif %}{% if current_order %}&order_by={{ current_order }}{% endif %}">Próxima</a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if current_search %}&nome={{ current_search }}{% endif %}{% if current_order %}&order_by={{ current_order }}{% endif %}">Última</a>
+                </li>
+              {% endif %}
+            </ul>
+          </nav>
+        {% endif %}
+
+      {% else %}
+        <div class="alert alert-info text-center">
+          <h5>Nenhuma consulta encontrada</h5>
+          <p>Não há consultas cadastradas ou que atendam aos critérios de busca.</p>
+          <a href="{% url 'consulta-create' %}" class="btn btn-primary">Cadastrar primeira consulta</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

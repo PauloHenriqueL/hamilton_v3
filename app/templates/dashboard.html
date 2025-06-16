@@ -1,0 +1,291 @@
+{% extends 'base.html' %}
+
+{% block title %}
+ALLOS - Dashboard Principal
+{% endblock %}
+
+{% block content %}
+{% if perms.auth.view_user %}
+
+<style>
+  .metric-card {
+    background-color: #2d2d2d;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease;
+    padding: 1.5rem;
+    height: 100%;
+    text-align: center;
+  }
+  
+  .metric-card:hover {
+    transform: translateY(-4px);
+  }
+  
+  .metric-title {
+    color: #b0b0b0;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+  }
+  
+  .metric-value {
+    color: #ffffff;
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  
+  .metric-subtitle {
+    color: #888888;
+    font-size: 0.8rem;
+  }
+  
+  .page-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding: 2rem 1rem 1rem 1rem;
+    background-color: #1a1a1a;
+    color: #ffffff;
+  }
+  
+  .page-header h1 {
+    color: #ffffff;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  
+  .page-header p {
+    color: #b0b0b0;
+    font-size: 1.1rem;
+  }
+  
+  .highlight-green { color: #00d4aa; }
+  .highlight-blue { color: #4db6e6; }
+  .highlight-orange { color: #ff9f43; }
+  
+  body { background-color: #1a1a1a; }
+  
+  /* Estilos para a tabela */
+  .table-hover tbody tr:hover {
+    background-color: rgba(0, 140, 140, 0.075);
+  }
+  
+  .table th, .table td {
+    vertical-align: middle;
+  }
+  
+  .badge.rounded-pill {
+    padding: 0.4em 0.8em;
+    font-weight: 500;
+  }
+  
+  .badge.bg-success {
+    background-color: #2AAA8A !important;
+  }
+  
+  .badge.bg-danger {
+    background-color: #DC3545 !important;
+  }
+  
+  .badge.bg-warning {
+    background-color: #FFC107 !important;
+    color: #212529;
+  }
+  
+  .badge.bg-secondary {
+    background-color: #6C757D !important;
+  }
+  
+  .badge.bg-info {
+    background-color: #17A2B8 !important;
+  }
+  
+  .text-muted {
+    color: #b0b0b0 !important;
+  }
+</style>
+
+<!-- Header principal -->
+<div class="page-header">
+  <h1>Métricas Gerais - Allos</h1>
+  <p>Dashboard de Performance</p>
+</div>
+
+<div class="container-fluid">
+  
+  <!-- Primeira linha: Taxa de Adesão e Receitas -->
+  <div class="row">
+    <div class="col-lg-3 col-md-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-title">Taxa de Adesão: Consultas Realizadas/Marcadas</div>
+        <div class="metric-value highlight-green">{{ metrics.taxa_adesao }}%</div>
+        <div class="metric-subtitle">{{ metrics.consultas_realizadas }} de {{ metrics.consultas_marcadas }}</div>
+      </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-title">Receita Total Recebida no PIX</div>
+        <div class="metric-value">R$ {{ metrics.receita_total_recebida }}</div>
+      </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-title">Receita Total Esperada no PIX</div>
+        <div class="metric-value">R$ {{ metrics.receita_total_esperada }}</div>
+      </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-title">Receita Total Acordada</div>
+        <div class="metric-value">R$ {{ metrics.receita_total_acordada }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Segunda linha: Pessoas e Sessões -->
+  <div class="row">
+    <div class="col-lg-3 col-md-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-title">Captação de pacientes no mês</div>
+        <div class="metric-value highlight-blue">{{ metrics.captacao_pacientes_mes }}</div>
+        <div class="metric-subtitle">Novos pacientes</div>
+      </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-title">Pacientes Ativos</div>
+        <div class="metric-value">{{ metrics.pacientes_ativos }}</div>
+      </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-title">Terapeutas Ativos</div>
+        <div class="metric-value">{{ metrics.terapeutas_ativos }}</div>
+      </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-title">Total de Sessões no Mês</div>
+        <div class="metric-value highlight-orange">{{ metrics.total_sessoes_mes }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Terceira linha: Preços Médios -->
+  <div class="row">
+    <div class="col-lg-4 col-md-4 mb-4">
+      <div class="metric-card">
+        <div class="metric-title">Preço Médio Acordado</div>
+        <div class="metric-value">R$ {{ metrics.preco_medio_acordado }}</div>
+      </div>
+    </div>
+    
+    <div class="col-lg-4 col-md-4 mb-4">
+      <div class="metric-card">
+        <div class="metric-title">Preço Médio Esperado</div>
+        <div class="metric-value">R$ {{ metrics.preco_medio_esperado }}</div>
+      </div>
+    </div>
+    
+    <div class="col-lg-4 col-md-4 mb-4">
+      <div class="metric-card">
+        <div class="metric-title">Preço Médio Realizado</div>
+        <div class="metric-value">R$ {{ metrics.preco_medio_realizado }}</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Seção de Métricas por Terapeuta -->
+<div class="row mt-4">
+  <div class="col-12">
+    <h4 class="text-muted mb-3">Métricas por Terapeuta</h4>
+  </div>
+</div>
+
+<!-- Tabela de métricas por terapeuta -->
+<div class="row mt-2 mb-4">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead class="table-primary">
+              <tr>
+                <th class="fw-bold">Terapeuta</th>
+                <th class="fw-bold text-center">Taxa de Adesão</th>
+                <th class="fw-bold text-center">Pacientes Ativos</th>
+                <th class="fw-bold text-center">Consultas Marcadas</th>
+                <th class="fw-bold text-center">Consultas Realizadas</th>
+                <th class="fw-bold text-center">Valor Recebido</th>
+                <th class="fw-bold text-center">Receita Esperada</th>
+                <th class="fw-bold text-center">Diferença</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for met in metricas_terapeutas %}
+              <tr>
+                <td><strong>{{ met.nome }}</strong></td>
+                <td class="text-center">
+                  {% if met.taxa_adesao|stringformat:"s"|slice:":3" < "50" %}
+                    <span class="badge bg-success rounded-pill">{{ met.taxa_adesao }}%</span>
+                  {% elif met.taxa_adesao|stringformat:"s"|slice:":3" < "80" %}
+                    <span class="badge bg-warning rounded-pill">{{ met.taxa_adesao }}%</span>
+                  {% elif met.taxa_adesao == "100.0" %}
+                    <span class="badge bg-danger rounded-pill">{{ met.taxa_adesao }}%</span>
+                  {% else %}
+                    <span class="badge bg-info rounded-pill">{{ met.taxa_adesao }}%</span>
+                  {% endif %}
+                </td>
+                <td class="text-center">{{ met.pacientes_ativos }}</td>
+                <td class="text-center">{{ met.total_consultas }}</td>
+                <td class="text-center">{{ met.total_consultasrealizadas }}</td>
+                <td class="text-center fw-bold">R$ {{ met.valor_recebido }}</td>
+                <td class="text-center">R$ {{ met.receita_esperada }}</td>
+                <td class="text-center">
+                  {% if met.status_diferenca == 'positivo' %}
+                    <span class="badge bg-success rounded-pill">R$ {{ met.diferenca }}</span>
+                  {% elif met.status_diferenca == 'negativo' %}
+                    <span class="badge bg-danger rounded-pill">R$ {{ met.diferenca }}</span>
+                  {% else %}
+                    <span class="badge bg-secondary rounded-pill">R$ {{ met.diferenca }}</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const cards = document.querySelectorAll('.metric-card');
+  cards.forEach((card, index) => {
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(30px)';
+    
+    setTimeout(() => {
+      card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+      card.style.opacity = '1';
+      card.style.transform = 'translateY(0)';
+    }, index * 100);
+  });
+});
+</script>
+
+{% endif %}
+{% endblock %}

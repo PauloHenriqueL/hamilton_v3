@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}
+ALLOS - Cadastrar Consulta
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h3 class="display-4">Cadastrar Consultas</h3>
+
+  <div class="card">
+    <div class="card-body">
+      <form method="post" class="form" novalidate>
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">
+            {% for error in form.non_field_errors %}
+              {{ error }}
+            {% endfor %}
+          </div>
+        {% endif %}
+        
+        <div class="row g-3">
+          
+          <div class="col-md-6 mb-3">
+            <label for="{{ form.fk_terapeuta.id_for_label }}" class="form-label">{{ form.fk_terapeuta.label }}</label>
+            {{ form.fk_terapeuta }}
+            {% if form.fk_terapeuta.errors %}
+              <div class="invalid-feedback d-block">
+                {% for error in form.fk_terapeuta.errors %}{{ error }}{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          
+          <div class="col-md-6 mb-3">
+            <label for="{{ form.fk_paciente.id_for_label }}" class="form-label">{{ form.fk_paciente.label }}</label>
+            {{ form.fk_paciente }}
+            {% if form.fk_paciente.errors %}
+              <div class="invalid-feedback d-block">
+                {% for error in form.fk_paciente.errors %}{{ error }}{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          
+          <!-- Campo de quantidade de consultas -->
+          <div class="col-md-6 mb-3">
+            <label for="quantidade" class="form-label">Quantidade de Consultas</label>
+            <input type="number" name="quantidade" id="quantidade" class="form-control" min="1" value="1" required>
+          </div>
+
+          <!-- Campo de valor recebido no pix -->
+          <div class="col-md-6 mb-3">
+            <label for="vlr_pix_total" class="form-label">Valor total recebido no PIX</label>
+            <input type="number" name="vlr_pix_total" id="vlr_pix_total" class="form-control" step="0.01" min="0" placeholder="0.00" required>
+            <div class="form-text">Este valor será dividido igualmente entre todas as consultas.</div>
+          </div>
+          
+          <!-- Campo para mostrar datas das consultas -->
+          <div class="col-12" id="datas_container">
+            <h5 class="mt-3 mb-2">Datas e Status das Consultas</h5>
+            <div id="datas_inputs" class="row g-2">
+              <!-- Aqui serão adicionados inputs de data via JavaScript -->
+            </div>
+          </div>
+
+        </div>
+        
+        <div class="mt-4">
+          <button type="submit" class="btn btn-primary">Salvar Consultas</button>
+          <a href="{% url 'consulta-list' %}" class="btn btn-secondary ms-2">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const quantidadeInput = document.getElementById('quantidade');
+  const datasContainer = document.getElementById('datas_container');
+  const datasInputs = document.getElementById('datas_inputs');
+  
+  // Função para atualizar os inputs de data quando a quantidade mudar
+  function atualizarDatas() {
+    const quantidade = parseInt(quantidadeInput.value) || 1;
+    
+    // Limpar inputs existentes
+    datasInputs.innerHTML = '';
+    
+    if (quantidade === 0) {
+      datasContainer.style.display = 'none';
+      return;
+    } else {
+      datasContainer.style.display = 'block';
+    }
+    
+    // Criar inputs de data para cada consulta
+    for (let i = 0; i < quantidade; i++) {
+      const consultaDiv = document.createElement('div');
+      consultaDiv.className = 'col-md-4 mb-3';
+      
+      const container = document.createElement('div');
+      container.className = 'border rounded p-3';
+      
+      const consultaTitle = document.createElement('h6');
+      consultaTitle.className = 'mb-2';
+      consultaTitle.textContent = `Consulta ${i + 1}`;
+      
+      // Campo de data
+      const dataLabel = document.createElement('label');
+      dataLabel.className = 'form-label';
+      dataLabel.textContent = 'Data';
+      dataLabel.htmlFor = `data_consulta_${i}`;
+      
+      const dataInput = document.createElement('input');
+      dataInput.type = 'date';
+      dataInput.className = 'form-control mb-2';
+      dataInput.name = `data_consulta_${i}`;
+      dataInput.id = `data_consulta_${i}`;
+      dataInput.required = true;
+      
+      // Checkbox "realizado"
+      const referenciaDiv = document.createElement('div');
+      referenciaDiv.className = 'form-check mt-2';
+      
+      const referenciaInput = document.createElement('input');
+      referenciaInput.type = 'checkbox';
+      referenciaInput.className = 'form-check-input';
+      referenciaInput.name = `is_realizado_${i}`;
+      referenciaInput.id = `is_realizado_${i}`;
+      
+      const referenciaLabel = document.createElement('label');
+      referenciaLabel.className = 'form-check-label';
+      referenciaLabel.textContent = 'Consulta realizada';
+      referenciaLabel.htmlFor = `is_realizado_${i}`;
+      
+      // Adicionar elementos ao container
+      referenciaDiv.appendChild(referenciaInput);
+      referenciaDiv.appendChild(referenciaLabel);
+      
+      container.appendChild(consultaTitle);
+      container.appendChild(dataLabel);
+      container.appendChild(dataInput);
+      container.appendChild(referenciaDiv);
+      
+      consultaDiv.appendChild(container);
+      datasInputs.appendChild(consultaDiv);
+    }
+  }
+  
+  // Event listeners
+  quantidadeInput.addEventListener('input', atualizarDatas);
+  
+  // Inicializar
+  atualizarDatas();
+});
+</script>
+{% endblock %}

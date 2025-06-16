@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block title %}
+ALLOS - Editar Consulta
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="display-4">Editar Consulta #{{ object.pk_consulta }}</h3>
+    <a href="{% url 'consulta-detail' object.pk_consulta %}" class="btn btn-secondary">
+      <i class="fas fa-arrow-left"></i> Voltar
+    </a>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <form method="post" class="form" novalidate>
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">
+            {% for error in form.non_field_errors %}
+              {{ error }}
+            {% endfor %}
+          </div>
+        {% endif %}
+        
+        <div class="row g-3">
+          
+          <div class="col-md-6 mb-3">
+            <label for="{{ form.fk_terapeuta.id_for_label }}" class="form-label">{{ form.fk_terapeuta.label }}</label>
+            {{ form.fk_terapeuta }}
+            {% if form.fk_terapeuta.errors %}
+              <div class="invalid-feedback d-block">
+                {% for error in form.fk_terapeuta.errors %}{{ error }}{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          
+          <div class="col-md-6 mb-3">
+            <label for="{{ form.fk_paciente.id_for_label }}" class="form-label">{{ form.fk_paciente.label }}</label>
+            {{ form.fk_paciente }}
+            {% if form.fk_paciente.errors %}
+              <div class="invalid-feedback d-block">
+                {% for error in form.fk_paciente.errors %}{{ error }}{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          
+          <div class="col-md-6 mb-3">
+            <label for="{{ form.vlr_consulta.id_for_label }}" class="form-label">{{ form.vlr_consulta.label }}</label>
+            {{ form.vlr_consulta }}
+            {% if form.vlr_consulta.errors %}
+              <div class="invalid-feedback d-block">
+                {% for error in form.vlr_consulta.errors %}{{ error }}{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          
+          <div class="col-md-6 mb-3">
+            <label for="dat_consulta" class="form-label">Data da Consulta</label>
+            <input type="date" name="dat_consulta" id="dat_consulta" class="form-control" 
+                   value="{{ object.dat_consulta|date:'Y-m-d' }}" required>
+          </div>
+          
+          <div class="col-md-6 mb-3">
+            <label for="{{ form.vlr_pago.id_for_label }}" class="form-label">{{ form.vlr_pago.label }}</label>
+            {{ form.vlr_pago }}
+            {% if form.vlr_pago.errors %}
+              <div class="invalid-feedback d-block">
+                {% for error in form.vlr_pago.errors %}{{ error }}{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header">
+                <h6 class="card-title mb-0">Status da Consulta</h6>
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="form-check">
+                      <input type="checkbox" name="is_realizado" id="is_realizado" 
+                             class="form-check-input" {% if object.is_realizado %}checked{% endif %}>
+                      <label class="form-check-label" for="is_realizado">
+                        Consulta realizada
+                      </label>
+                    </div>
+                  </div>
+                  
+                  <div class="col-md-6">
+                    <div class="form-check">
+                      <input type="checkbox" name="is_pago" id="is_pago" 
+                             class="form-check-input" {% if object.vlr_pago %}checked{% endif %}>
+                      <label class="form-check-label" for="is_pago">
+                        Consulta paga
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        
+        <div class="mt-4">
+          <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+          <a href="{% url 'consulta-detail' object.pk_consulta %}" class="btn btn-secondary ms-2">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const pacienteSelect = document.getElementById('id_fk_paciente');
+  const valorConsultaInput = document.getElementById('id_vlr_consulta');
+  
+  // Função para buscar valor da sessão do paciente
+  function buscarValorSessao(pacienteId) {
+    if (!pacienteId) return;
+    
+    fetch(`/api/pacientes/${pacienteId}/valor_sessao/`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.vlr_sessao) {
+          valorConsultaInput.value = data.vlr_sessao;
+        }
+      })
+      .catch(error => console.error('Erro ao buscar valor da sessão:', error));
+  }
+  
+  // Event listener para mudança de paciente
+  if (pacienteSelect) {
+    pacienteSelect.addEventListener('change', function() {
+      buscarValorSessao(this.value);
+    });
+  }
+});
+</script>
+{% endblock %}

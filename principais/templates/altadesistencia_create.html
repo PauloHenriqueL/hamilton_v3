@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}
+ALLOS - Cadastrar Alta/Desistência
+{% endblock %}
+
+{% block content %}
+  <div class="container mt-4">
+    <h3 class="display-4">Cadastrar Alta/Desistência</h3>
+
+    <div class="card">
+      <div class="card-body">
+        <form method="post" class="form" novalidate>
+          {% csrf_token %}
+          
+          {% if form.errors %}
+          <div class="alert alert-danger">
+            Por favor, corrija os erros abaixo.
+          </div>
+          {% endif %}
+          
+          <div class="row g-3">
+
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.fk_terapeuta.id_for_label }}" class="form-label">{{ form.fk_terapeuta.label }}</label>
+              {{ form.fk_terapeuta }}
+              {% if form.fk_terapeuta.errors %}
+                <div class="invalid-feedback d-block">{{ form.fk_terapeuta.errors }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.fk_paciente.id_for_label }}" class="form-label">{{ form.fk_paciente.label }}</label>
+              {{ form.fk_paciente }}
+              {% if form.fk_paciente.errors %}
+                <div class="invalid-feedback d-block">{{ form.fk_paciente.errors }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.dat_sessao.id_for_label }}" class="form-label">{{ form.dat_sessao.label }}</label>
+              {{ form.dat_sessao }}
+              {% if form.dat_sessao.errors %}
+                <div class="invalid-feedback d-block">{{ form.dat_sessao.errors }}</div>
+              {% endif %}
+            </div>
+            
+            <!-- Campo Alta/Desistência -->
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.alta_desistencia.id_for_label }}" class="form-label">{{ form.alta_desistencia.label }}</label>
+              {{ form.alta_desistencia }}
+              {% if form.alta_desistencia.errors %}
+                <div class="invalid-feedback d-block">{{ form.alta_desistencia.errors }}</div>
+              {% endif %}
+            </div>
+            
+            <!-- Campo Cancelador (que estava faltando) -->
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.cancelador.id_for_label }}" class="form-label">{{ form.cancelador.label }}</label>
+              {{ form.cancelador }}
+              {% if form.cancelador.errors %}
+                <div class="invalid-feedback d-block">{{ form.cancelador.errors }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.momento.id_for_label }}" class="form-label">{{ form.momento.label }}</label>
+              {{ form.momento }}
+              {% if form.momento.errors %}
+                <div class="invalid-feedback d-block">{{ form.momento.errors }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="col-12 mb-3">
+              <label for="{{ form.motivo_cancel.id_for_label }}" class="form-label">{{ form.motivo_cancel.label }}</label>
+              {{ form.motivo_cancel }}
+              {% if form.motivo_cancel.errors %}
+                <div class="invalid-feedback d-block">{{ form.motivo_cancel.errors }}</div>
+              {% endif %}
+            </div>
+
+          </div>
+          
+          <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Salvar Alta/Desistência</button>
+            <a href="{% url 'consulta-list' %}" class="btn btn-secondary ms-2">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+{% endblock %}
