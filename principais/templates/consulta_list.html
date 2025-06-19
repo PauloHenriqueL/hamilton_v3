@@ -54,7 +54,6 @@ ALLOS - Lista de Consultas
                 <th>Data</th>
                 <th>Paciente</th>
                 <th>Terapeuta</th>
-                <th>Valor</th>
                 <th>Status</th>
                 <th>Valor Pago</th>
                 <th>Ações</th>
@@ -67,7 +66,6 @@ ALLOS - Lista de Consultas
                   <td>{{ consulta.dat_consulta|date:"d/m/Y" }}</td>
                   <td>{{ consulta.fk_paciente.nome }}</td>
                   <td>{{ consulta.fk_terapeuta.fk_associado.nome }}</td>
-                  <td>R$ {{ consulta.vlr_consulta|floatformat:2 }}</td>
                   <td>
                     {% if consulta.is_realizado %}
                       <span class="badge bg-success">Realizada</span>

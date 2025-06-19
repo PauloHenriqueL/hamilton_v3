@@ -431,3 +431,33 @@ class Avaliacao(models.Model):
         db_table = "avaliação"
         verbose_name = "Avaliação"
         verbose_name_plural = "Avaliações"
+
+
+
+class Match(models.Model):
+    pk_match = models.AutoField(primary_key=True, verbose_name="ID")
+    fk_terapeuta = models.ForeignKey(
+        Terapeuta, 
+        on_delete=models.CASCADE, 
+        db_column='fk_terapeuta',
+        verbose_name="Terapeuta"
+    )
+    fk_paciente = models.ForeignKey(
+        Paciente, 
+        on_delete=models.CASCADE, 
+        db_column='fk_paciente',
+        verbose_name="Paciente"
+    )
+    dat_consulta = models.DateField(verbose_name="Data da consulta")
+    
+
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
+
+    class Meta:
+        db_table = "match"
+        verbose_name = "Match"
+        verbose_name_plural = "Match"
+
+

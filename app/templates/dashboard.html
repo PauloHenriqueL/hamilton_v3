@@ -106,6 +106,67 @@ ALLOS - Dashboard Principal
   .text-muted {
     color: #b0b0b0 !important;
   }
+
+  /* Estilos para filtros da tabela */
+  .table-filters {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .filter-group label {
+    margin: 0;
+    font-weight: 600;
+    color: #495057;
+  }
+  
+  .filter-group select, .filter-group input {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 5px 10px;
+  }
+
+  /* Estilos para os gráficos - CORRIGIDO */
+  .chart-container {
+    background-color: #2d2d2d;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    height: 400px; /* Altura fixa */
+    position: relative;
+  }
+
+  .chart-title {
+    color: #ffffff;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+    text-align: center;
+  }
+
+  /* Canvas com altura fixa */
+  .chart-container canvas {
+    max-height: 320px !important;
+    height: 320px !important;
+  }
+
+  /* Mensagem de erro */
+  .error-message {
+    background-color: #dc3545;
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
 </style>
 
 <!-- Header principal -->
@@ -115,6 +176,13 @@ ALLOS - Dashboard Principal
 </div>
 
 <div class="container-fluid">
+  
+  <!-- Exibir mensagem de erro se houver -->
+  {% if error_message %}
+  <div class="error-message">
+    {{ error_message }}
+  </div>
+  {% endif %}
   
   <!-- Primeira linha: Taxa de Adesão e Receitas -->
   <div class="row">
@@ -135,20 +203,20 @@ ALLOS - Dashboard Principal
     
     <div class="col-lg-3 col-md-6 mb-4">
       <div class="metric-card">
-        <div class="metric-title">Receita Total Esperada no PIX</div>
-        <div class="metric-value">R$ {{ metrics.receita_total_esperada }}</div>
+        <div class="metric-title">Receita Acordada Mensal</div>
+        <div class="metric-value">R$ {{ metrics.receita_acordada_mensal }}</div>
       </div>
     </div>
     
     <div class="col-lg-3 col-md-6 mb-4">
       <div class="metric-card">
-        <div class="metric-title">Receita Total Acordada</div>
-        <div class="metric-value">R$ {{ metrics.receita_total_acordada }}</div>
+        <div class="metric-title">Tempo Médio Cadastro-Match</div>
+        <div class="metric-value highlight-blue">{{ metrics.tempo_medio_match }} dias</div>
       </div>
     </div>
   </div>
 
-  <!-- Segunda linha: Pessoas e Sessões -->
+  <!-- Segunda linha: Pessoas e Novas Métricas -->
   <div class="row">
     <div class="col-lg-3 col-md-6 mb-4">
       <div class="metric-card">
@@ -174,32 +242,66 @@ ALLOS - Dashboard Principal
     
     <div class="col-lg-3 col-md-6 mb-4">
       <div class="metric-card">
-        <div class="metric-title">Total de Sessões no Mês</div>
-        <div class="metric-value highlight-orange">{{ metrics.total_sessoes_mes }}</div>
+        <div class="metric-title">% Pacientes Inadimplentes</div>
+        <div class="metric-value highlight-orange">{{ metrics.porcentagem_inadimplentes }}%</div>
       </div>
     </div>
   </div>
 
-  <!-- Terceira linha: Preços Médios -->
+  <!-- Terceira linha: Preços e Pacientes com Consultas -->
   <div class="row">
-    <div class="col-lg-4 col-md-4 mb-4">
-      <div class="metric-card">
-        <div class="metric-title">Preço Médio Acordado</div>
-        <div class="metric-value">R$ {{ metrics.preco_medio_acordado }}</div>
-      </div>
-    </div>
-    
-    <div class="col-lg-4 col-md-4 mb-4">
-      <div class="metric-card">
-        <div class="metric-title">Preço Médio Esperado</div>
-        <div class="metric-value">R$ {{ metrics.preco_medio_esperado }}</div>
-      </div>
-    </div>
-    
-    <div class="col-lg-4 col-md-4 mb-4">
+    <div class="col-lg-6 col-md-6 mb-4">
       <div class="metric-card">
         <div class="metric-title">Preço Médio Realizado</div>
         <div class="metric-value">R$ {{ metrics.preco_medio_realizado }}</div>
+      </div>
+    </div>
+    
+    <div class="col-lg-6 col-md-6 mb-4">
+      <div class="metric-card">
+        <div class="metric-title">% Pacientes com Consultas (6m)</div>
+        <div class="metric-value highlight-green">{{ porcentagem_pacientes_consultas.porcentagem }}%</div>
+        <div class="metric-subtitle">{{ porcentagem_pacientes_consultas.pacientes_com_consultas }} de {{ porcentagem_pacientes_consultas.total_pacientes_ativos }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Seção de Gráficos -->
+  <div class="row mt-4">
+    <div class="col-12">
+      <h4 class="text-muted mb-3">Análises Temporais</h4>
+    </div>
+  </div>
+
+  <!-- Gráficos -->
+  <div class="row">
+    <div class="col-lg-6 col-md-12 mb-4">
+      <div class="chart-container">
+        <div class="chart-title">Sessões por Mês (Últimos 6 Meses)</div>
+        <canvas id="monthlyConsultasChart"></canvas>
+      </div>
+    </div>
+    
+    <div class="col-lg-6 col-md-12 mb-4">
+      <div class="chart-container">
+        <div class="chart-title">Receita PIX por Mês (Últimos 6 Meses)</div>
+        <canvas id="monthlyReceitaPIXChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-6 col-md-12 mb-4">
+      <div class="chart-container">
+        <div class="chart-title">Consultas por Dia (Últimos 7 Dias)</div>
+        <canvas id="dailyConsultasChart"></canvas>
+      </div>
+    </div>
+    
+    <div class="col-lg-6 col-md-12 mb-4">
+      <div class="chart-container">
+        <div class="chart-title">Valor por Dia (Últimos 7 Dias)</div>
+        <canvas id="dailyValorChart"></canvas>
       </div>
     </div>
   </div>
@@ -213,13 +315,38 @@ ALLOS - Dashboard Principal
   </div>
 </div>
 
+<!-- Filtros para a tabela de terapeutas -->
+<div class="row mt-2">
+  <div class="col-12">
+    <div class="table-filters">
+      <div class="filter-group">
+        <label for="sortOrder">Ordenar por:</label>
+        <select id="sortOrder" onchange="sortTable()">
+          <option value="nome">Nome (A-Z)</option>
+          <option value="nome-desc">Nome (Z-A)</option>
+          <option value="taxa">Taxa de Adesão (Maior)</option>
+          <option value="taxa-desc">Taxa de Adesão (Menor)</option>
+          <option value="qualidade">Qualidade (Maior)</option>
+          <option value="qualidade-desc">Qualidade (Menor)</option>
+          <option value="receita">Receita Acordada (Maior)</option>
+          <option value="receita-desc">Receita Acordada (Menor)</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="searchTerapeuta">Buscar terapeuta:</label>
+        <input type="text" id="searchTerapeuta" placeholder="Digite o nome..." onkeyup="filterTable()">
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Tabela de métricas por terapeuta -->
 <div class="row mt-2 mb-4">
   <div class="col-12">
     <div class="card border-0 shadow-sm">
       <div class="card-body">
         <div class="table-responsive">
-          <table class="table table-hover">
+          <table class="table table-hover" id="terapeutaTable">
             <thead class="table-primary">
               <tr>
                 <th class="fw-bold">Terapeuta</th>
@@ -228,39 +355,43 @@ ALLOS - Dashboard Principal
                 <th class="fw-bold text-center">Consultas Marcadas</th>
                 <th class="fw-bold text-center">Consultas Realizadas</th>
                 <th class="fw-bold text-center">Valor Recebido</th>
-                <th class="fw-bold text-center">Receita Esperada</th>
+                <th class="fw-bold text-center">Receita Acordada</th>
                 <th class="fw-bold text-center">Diferença</th>
               </tr>
             </thead>
             <tbody>
               {% for met in metricas_terapeutas %}
               <tr>
-                <td><strong>{{ met.nome }}</strong></td>
-                <td class="text-center">
-                  {% if met.taxa_adesao|stringformat:"s"|slice:":3" < "50" %}
+                <td><strong>{{ met.nome|default:"N/A" }}</strong></td>
+                <td class="text-center" data-taxa="{{ met.taxa_adesao|default:'0' }}">
+                  {% if met.taxa_adesao|stringformat:"s"|slice:":3"|add:"0" >= 80 %}
                     <span class="badge bg-success rounded-pill">{{ met.taxa_adesao }}%</span>
-                  {% elif met.taxa_adesao|stringformat:"s"|slice:":3" < "80" %}
+                  {% elif met.taxa_adesao|stringformat:"s"|slice:":3"|add:"0" >= 50 %}
                     <span class="badge bg-warning rounded-pill">{{ met.taxa_adesao }}%</span>
                   {% elif met.taxa_adesao == "100.0" %}
-                    <span class="badge bg-danger rounded-pill">{{ met.taxa_adesao }}%</span>
-                  {% else %}
                     <span class="badge bg-info rounded-pill">{{ met.taxa_adesao }}%</span>
+                  {% else %}
+                    <span class="badge bg-danger rounded-pill">{{ met.taxa_adesao }}%</span>
                   {% endif %}
                 </td>
-                <td class="text-center">{{ met.pacientes_ativos }}</td>
-                <td class="text-center">{{ met.total_consultas }}</td>
-                <td class="text-center">{{ met.total_consultasrealizadas }}</td>
-                <td class="text-center fw-bold">R$ {{ met.valor_recebido }}</td>
-                <td class="text-center">R$ {{ met.receita_esperada }}</td>
+                <td class="text-center">{{ met.pacientes_ativos|default:0 }}</td>
+                <td class="text-center">{{ met.total_consultas|default:0 }}</td>
+                <td class="text-center">{{ met.total_consultasrealizadas|default:0 }}</td>
+                <td class="text-center fw-bold">R$ {{ met.valor_recebido|default:"0,00" }}</td>
+                <td class="text-center" data-receita="{{ met.receita_acordada|default:'0,00' }}">R$ {{ met.receita_acordada|default:"0,00" }}</td>
                 <td class="text-center">
                   {% if met.status_diferenca == 'positivo' %}
-                    <span class="badge bg-success rounded-pill">R$ {{ met.diferenca }}</span>
+                    <span class="badge bg-success rounded-pill">+R$ {{ met.diferenca }}</span>
                   {% elif met.status_diferenca == 'negativo' %}
-                    <span class="badge bg-danger rounded-pill">R$ {{ met.diferenca }}</span>
+                    <span class="badge bg-danger rounded-pill">-R$ {{ met.diferenca }}</span>
                   {% else %}
-                    <span class="badge bg-secondary rounded-pill">R$ {{ met.diferenca }}</span>
+                    <span class="badge bg-secondary rounded-pill">R$ {{ met.diferenca|default:"0,00" }}</span>
                   {% endif %}
                 </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="9" class="text-center">Nenhum terapeuta encontrado</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -271,8 +402,10 @@ ALLOS - Dashboard Principal
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+  // Animação dos cards
   const cards = document.querySelectorAll('.metric-card');
   cards.forEach((card, index) => {
     card.style.opacity = '0';
@@ -284,7 +417,292 @@ document.addEventListener("DOMContentLoaded", function() {
       card.style.transform = 'translateY(0)';
     }, index * 100);
   });
+
+  // Configurações dos gráficos - CORRIGIDO
+  const chartConfig = {
+    responsive: true,
+    maintainAspectRatio: false, // Permite controle manual da altura
+    interaction: {
+      intersect: false,
+    },
+    animation: {
+      duration: 1000
+    },
+    plugins: {
+      legend: {
+        labels: {
+          color: '#ffffff'
+        }
+      }
+    },
+    scales: {
+      x: {
+        ticks: {
+          color: '#ffffff',
+          maxRotation: 45
+        },
+        grid: {
+          color: '#444444'
+        }
+      },
+      y: {
+        beginAtZero: true,
+        ticks: {
+          color: '#ffffff',
+          // Limita o número de ticks para evitar overflow
+          maxTicksLimit: 8
+        },
+        grid: {
+          color: '#444444'
+        }
+      }
+    }
+  };
+
+  // Função para tentar parsear dados JSON com fallback
+  function safeParseJSON(jsonString, fallback = {months: [], values: []}) {
+    try {
+      const parsed = JSON.parse(jsonString);
+      return parsed && typeof parsed === 'object' ? parsed : fallback;
+    } catch (e) {
+      console.warn('Erro ao parsear JSON:', e);
+      return fallback;
+    }
+  }
+
+  // Função para calcular valor máximo do eixo Y com margem
+  function calculateYMax(values) {
+    if (!values || values.length === 0) return 10;
+    const maxValue = Math.max(...values);
+    return Math.ceil(maxValue * 1.2); // 20% de margem superior
+  }
+
+  // Gráfico de consultas mensais
+  const monthlyConsultasData = safeParseJSON('{{ monthly_consultas_data|safe }}');
+  if (monthlyConsultasData.months && monthlyConsultasData.months.length > 0) {
+    const ctx1 = document.getElementById('monthlyConsultasChart');
+    if (ctx1) {
+      const maxY = calculateYMax(monthlyConsultasData.values);
+      const config = {
+        ...chartConfig,
+        scales: {
+          ...chartConfig.scales,
+          y: {
+            ...chartConfig.scales.y,
+            max: maxY
+          }
+        }
+      };
+      
+      new Chart(ctx1.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: monthlyConsultasData.months,
+          datasets: [{
+            label: 'Número de Sessões',
+            data: monthlyConsultasData.values,
+            backgroundColor: '#00d4aa',
+            borderColor: '#00b894',
+            borderWidth: 1
+          }]
+        },
+        options: config
+      });
+    }
+  }
+
+  // Gráfico de receita PIX mensal
+  const receitaPIXData = safeParseJSON('{{ receita_pix_mensal|safe }}');
+  if (receitaPIXData.months && receitaPIXData.months.length > 0) {
+    const ctx2 = document.getElementById('monthlyReceitaPIXChart');
+    if (ctx2) {
+      const maxY = calculateYMax(receitaPIXData.values);
+      const config = {
+        ...chartConfig,
+        scales: {
+          ...chartConfig.scales,
+          y: {
+            ...chartConfig.scales.y,
+            max: maxY
+          }
+        }
+      };
+      
+      new Chart(ctx2.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: receitaPIXData.months,
+          datasets: [{
+            label: 'Receita PIX (R$)',
+            data: receitaPIXData.values,
+            borderColor: '#4db6e6',
+            backgroundColor: 'rgba(77, 182, 230, 0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        options: config
+      });
+    }
+  }
+
+  // Gráfico de consultas diárias
+  const dailyConsultasData = safeParseJSON('{{ daily_consultas_data|safe }}', {dates: [], values: []});
+  if (dailyConsultasData.dates && dailyConsultasData.dates.length > 0) {
+    const ctx3 = document.getElementById('dailyConsultasChart');
+    if (ctx3) {
+      const maxY = calculateYMax(dailyConsultasData.values);
+      const config = {
+        ...chartConfig,
+        scales: {
+          ...chartConfig.scales,
+          y: {
+            ...chartConfig.scales.y,
+            max: maxY
+          }
+        }
+      };
+      
+      new Chart(ctx3.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: dailyConsultasData.dates,
+          datasets: [{
+            label: 'Consultas por Dia',
+            data: dailyConsultasData.values,
+            borderColor: '#ff9f43',
+            backgroundColor: 'rgba(255, 159, 67, 0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        options: config
+      });
+    }
+  }
+
+  // Gráfico de valor diário
+  const dailyValorData = safeParseJSON('{{ daily_valor_data|safe }}', {dates: [], values: []});
+  if (dailyValorData.dates && dailyValorData.dates.length > 0) {
+    const ctx4 = document.getElementById('dailyValorChart');
+    if (ctx4) {
+      const maxY = calculateYMax(dailyValorData.values);
+      const config = {
+        ...chartConfig,
+        scales: {
+          ...chartConfig.scales,
+          y: {
+            ...chartConfig.scales.y,
+            max: maxY
+          }
+        }
+      };
+      
+      new Chart(ctx4.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: dailyValorData.dates,
+          datasets: [{
+            label: 'Valor Total (R$)',
+            data: dailyValorData.values,
+            backgroundColor: '#a16ae8',
+            borderColor: '#8e44ad',
+            borderWidth: 1
+          }]
+        },
+        options: config
+      });
+    }
+  }
 });
+
+// Função para filtrar a tabela por nome do terapeuta
+function filterTable() {
+  const input = document.getElementById("searchTerapeuta");
+  const filter = input.value.toUpperCase();
+  const table = document.getElementById("terapeutaTable");
+  const tr = table.getElementsByTagName("tr");
+
+  for (let i = 1; i < tr.length; i++) {
+    const td = tr[i].getElementsByTagName("td")[0];
+    if (td) {
+      const txtValue = td.textContent || td.innerText;
+      if (txtValue.toUpperCase().indexOf(filter) > -1) {
+        tr[i].style.display = "";
+      } else {
+        tr[i].style.display = "none";
+      }
+    }
+  }
+}
+
+// Função para ordenar a tabela
+function sortTable() {
+  const table = document.getElementById("terapeutaTable");
+  const tbody = table.getElementsByTagName('tbody')[0];
+  const rows = Array.from(tbody.getElementsByTagName('tr'));
+  const sortBy = document.getElementById("sortOrder").value;
+
+  // Remover linha "empty" se existir
+  const filteredRows = rows.filter(row => !row.querySelector('td[colspan]'));
+
+  filteredRows.sort((a, b) => {
+    let aVal, bVal;
+    
+    switch(sortBy) {
+      case 'nome':
+        aVal = a.cells[0].textContent.trim();
+        bVal = b.cells[0].textContent.trim();
+        return aVal.localeCompare(bVal);
+      
+      case 'nome-desc':
+        aVal = a.cells[0].textContent.trim();
+        bVal = b.cells[0].textContent.trim();
+        return bVal.localeCompare(aVal);
+      
+      case 'taxa':
+        aVal = parseFloat(a.cells[1].getAttribute('data-taxa') || '0');
+        bVal = parseFloat(b.cells[1].getAttribute('data-taxa') || '0');
+        return bVal - aVal;
+      
+      case 'taxa-desc':
+        aVal = parseFloat(a.cells[1].getAttribute('data-taxa') || '0');
+        bVal = parseFloat(b.cells[1].getAttribute('data-taxa') || '0');
+        return aVal - bVal;
+      
+      case 'qualidade':
+        aVal = parseFloat(a.cells[2].getAttribute('data-qualidade') || '0');
+        bVal = parseFloat(b.cells[2].getAttribute('data-qualidade') || '0');
+        return bVal - aVal;
+      
+      case 'qualidade-desc':
+        aVal = parseFloat(a.cells[2].getAttribute('data-qualidade') || '0');
+        bVal = parseFloat(b.cells[2].getAttribute('data-qualidade') || '0');
+        return aVal - bVal;
+      
+      case 'receita':
+        aVal = parseFloat(a.cells[7].getAttribute('data-receita')?.replace(/[^\d.-]/g, '') || '0');
+        bVal = parseFloat(b.cells[7].getAttribute('data-receita')?.replace(/[^\d.-]/g, '') || '0');
+        return bVal - aVal;
+      
+      case 'receita-desc':
+        aVal = parseFloat(a.cells[7].getAttribute('data-receita')?.replace(/[^\d.-]/g, '') || '0');
+        bVal = parseFloat(b.cells[7].getAttribute('data-receita')?.replace(/[^\d.-]/g, '') || '0');
+        return aVal - bVal;
+      
+      default:
+        return 0;
+    }
+  });
+
+  // Limpar tbody e adicionar linhas ordenadas
+  tbody.innerHTML = '';
+  if (filteredRows.length > 0) {
+    filteredRows.forEach(row => tbody.appendChild(row));
+  } else {
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center">Nenhum terapeuta encontrado</td></tr>';
+  }
+}
 </script>
 
 {% endif %}
