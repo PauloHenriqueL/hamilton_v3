@@ -11,10 +11,9 @@ from django.core.exceptions import ValidationError
 
 
 def validar_cpf(cpf):
-    cpf = re.sub(r'[.-]', '', cpf)
-    
+
     if len(cpf) != 11 or not cpf.isdigit():
-        raise ValidationError('CPF deve ter 11 dígitos.')
+        raise ValidationError('CPF deve ter exatamente 11 dígitos numéricos.')
     
     if cpf == cpf[0] * 11:
         raise ValidationError('CPF inválido.')
@@ -49,11 +48,14 @@ class Associado(models.Model):
     )
     
     email = models.EmailField(
+        null=True, 
+        blank=True,
         unique=True, 
         verbose_name="E-mail",
         validators=[EmailValidator(message="Informe um endereço de e-mail válido.")]
     )
-    faculdade = models.CharField(max_length=255, verbose_name="Faculdade")
+
+    faculdade = models.CharField(null=True, blank=True,max_length=255, verbose_name="Faculdade")
 
     telefone = models.CharField(
         max_length=20, 
@@ -75,11 +77,13 @@ class Associado(models.Model):
         verbose_name="Sexo"
     )
     cpf = models.CharField(
+        null=True, 
+        blank=True,
         max_length=14, 
         unique=True, 
         verbose_name='CPF',
         validators=[validar_cpf],
-        help_text='Exemplo: 123.456.789-01'
+        help_text='Não use . e - Exemplo: 12345678901'
     )
     endereco = models.CharField(
         max_length=100, 

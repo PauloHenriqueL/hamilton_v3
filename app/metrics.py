@@ -155,8 +155,8 @@ def get_consulta_metrics():
             tempo_total_dias = 0
             count_matches = 0
             for match in matches_mes:
-                if match.fk_paciente.created_at:
-                    diferenca = match.created_at.date() - match.fk_paciente.created_at.date()
+                if match.fk_paciente.created_at and match.dat_consulta:
+                    diferenca = match.dat_consulta - match.fk_paciente.created_at.date()
                     tempo_total_dias += diferenca.days
                     count_matches += 1
             

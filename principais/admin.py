@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.db.models import Count, Max, Q
-from .models import Associado, Paciente, Terapeuta, Consulta, Avaliacao, Altadesistencia
+from .models import Associado, Paciente, Terapeuta, Consulta, Avaliacao, Altadesistencia, Match
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.contrib.admin import SimpleListFilter
@@ -482,3 +482,21 @@ class AltadesistenciaAdmin(BaseAdmin):
     def terapeuta_nome(self, obj):
         return obj.fk_terapeuta.fk_associado.nome if obj.fk_terapeuta and obj.fk_terapeuta.fk_associado else '-'
     terapeuta_nome.short_description = 'Terapeuta'
+
+
+@admin.register(Match)
+class MatchAdmin(admin.ModelAdmin):
+    list_display = ('pk_match', 'fk_terapeuta', 'fk_paciente', 'dat_consulta', 'created_at')
+    list_filter = ('dat_consulta', 'created_at', 'fk_terapeuta')
+    search_fields = ('fk_terapeuta__nome', 'fk_paciente__nome')
+    date_hierarchy = 'dat_consulta'
+    ordering = ('-dat_consulta', '-created_at')
+    
+    fields = ('fk_terapeuta', 'fk_paciente', 'dat_consulta')
+    readonly_fields = ('created_at', 'updated_at')
+    
+    def get_readonly_fields(self, request, obj=None):
+        if obj:  # Editando um objeto existente
+            return self.readonly_fields + ('created_at', 'updated_at')
+        return self.readonly_fields
+
