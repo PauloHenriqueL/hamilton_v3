@@ -83,6 +83,92 @@ class ConsultaForm(forms.ModelForm):
         return cleaned_data
 
 
+class AltaDesistenciaForm(forms.ModelForm):
+    
+    class Meta:
+        model = models.Altadesistencia
+        fields = [
+            'fk_terapeuta', 
+            'fk_paciente', 
+            'dat_sessao',
+            'alta_desistencia',
+            'cancelador',
+            'motivo_cancel',
+            'momento',
+        ]
+        widgets = {
+            'fk_terapeuta': forms.Select(attrs={'class': 'form-control'}),
+            'fk_paciente': forms.Select(attrs={'class': 'form-control'}),
+            'dat_sessao': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'alta_desistencia': forms.Select(attrs={'class': 'form-control'}),
+            'cancelador': forms.Select(attrs={'class': 'form-control'}),
+            'motivo_cancel': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'momento': forms.Select(attrs={'class': 'form-control'}),
+        }
+        labels = {
+            'fk_terapeuta': 'Terapeuta', 
+            'fk_paciente': 'Paciente', 
+            'dat_sessao': 'Data da Sessão',
+            'alta_desistencia': 'Alta ou Desistência',
+            'cancelador': 'Quem cancelou?',
+            'motivo_cancel': 'Motivo do Cancelamento',
+            'momento': 'Quando ocorreu?',
+        }
+    
+    def __init__(self, *args, **kwargs):
+
+        user_terapeuta = kwargs.pop('user_terapeuta', None)
+        super().__init__(*args, **kwargs)
+
+        if user_terapeuta:
+            self.fields['fk_terapeuta'].initial = user_terapeuta.pk_terapeuta
+            self.fields['fk_terapeuta'].widget.attrs.update({
+                'disabled': 'disabled',
+                'readonly': 'readonly'
+            })
+            self.fields['fk_terapeuta'].required = False
+
+
+
+class MatchForm(forms.ModelForm):
+    
+    class Meta:
+        model = models.Match
+        fields = [
+            'fk_terapeuta', 
+            'fk_paciente', 
+            'dat_consulta',
+        ]
+        widgets = {
+            'fk_terapeuta': forms.Select(attrs={'class': 'form-control'}),
+            'fk_paciente': forms.Select(attrs={'class': 'form-control'}),
+            'dat_consulta': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+        }
+        labels = {
+            'fk_terapeuta': 'Terapeuta', 
+            'fk_paciente': 'Paciente', 
+            'dat_consulta': 'Data da Sessão',
+        }
+    
+    def __init__(self, *args, **kwargs):
+        # Extrair parâmetros customizados antes de chamar super()
+        user_terapeuta = kwargs.pop('user_terapeuta', None)
+        super().__init__(*args, **kwargs)
+        
+        # Se um terapeuta foi passado para o formulário, configurar os campos
+        if user_terapeuta:
+            # Definir o valor inicial e desabilitar o campo
+            self.fields['fk_terapeuta'].initial = user_terapeuta.pk_terapeuta
+            self.fields['fk_terapeuta'].widget.attrs.update({
+                'disabled': 'disabled',
+                'readonly': 'readonly'
+            })
+            
+            # IMPORTANTE: Marcar o campo como não obrigatório quando desabilitado
+            self.fields['fk_terapeuta'].required = False
+
+
+
 def clean(self):
     cleaned_data = super().clean()
     vlr_consulta = cleaned_data.get('vlr_consulta')
@@ -103,51 +189,6 @@ def clean(self):
     
     return cleaned_data
 
-class AltaDesistenciaForm(forms.ModelForm):
-    
-    class Meta:
-        model = models.Altadesistencia
-        fields = [
-            'fk_terapeuta', 
-            'fk_paciente', 
-            'dat_sessao',
-            'alta_desistencia',
-            'cancelador',  # Campo que estava faltando
-            'motivo_cancel',
-            'momento',
-        ]
-        widgets = {
-            'fk_terapeuta': forms.Select(attrs={'class': 'form-control'}),
-            'fk_paciente': forms.Select(attrs={'class': 'form-control'}),
-            'dat_sessao': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'alta_desistencia': forms.Select(attrs={'class': 'form-control'}),
-            'cancelador': forms.Select(attrs={'class': 'form-control'}),  # Widget para cancelador
-            'motivo_cancel': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'momento': forms.Select(attrs={'class': 'form-control'}),
-        }
-        labels = {
-            'fk_terapeuta': 'Terapeuta', 
-            'fk_paciente': 'Paciente', 
-            'dat_sessao': 'Data da Sessão',
-            'alta_desistencia': 'Alta ou Desistência',
-            'cancelador': 'Quem cancelou?',  # Label para cancelador
-            'motivo_cancel': 'Motivo do Cancelamento',
-            'momento': 'Quando ocorreu?',
-        }
-    
-    def __init__(self, *args, **kwargs):
-        # Extrair parâmetros customizados antes de chamar super()
-        user_terapeuta = kwargs.pop('user_terapeuta', None)
-        super().__init__(*args, **kwargs)
-        
-        # Se um terapeuta foi passado para o formulário, configurar os campos
-        if user_terapeuta:
-            # Definir o valor inicial e desabilitar o campo
-            self.fields['fk_terapeuta'].initial = user_terapeuta.pk_terapeuta
-            self.fields['fk_terapeuta'].widget.attrs.update({
-                'disabled': 'disabled',
-                'readonly': 'readonly'
-            })
-            
-            # IMPORTANTE: Marcar o campo como não obrigatório quando desabilitado
-            self.fields['fk_terapeuta'].required = False
+
+
+

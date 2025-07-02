@@ -80,11 +80,21 @@ class AvaliacaoSerializer(serializers.ModelSerializer):
 
 
 class AltadesistenciaSerializer(serializers.ModelSerializer):
-    # ✅ Dados relacionados para evitar queries extras
     terapeuta_nome = serializers.CharField(source='fk_terapeuta.fk_associado.nome', read_only=True)
     paciente_nome = serializers.CharField(source='fk_paciente.nome', read_only=True)
 
     class Meta:
         model = models.Altadesistencia
         fields = '__all__'
+
+
+class SelecaoSerializer(serializers.ModelSerializer):
+    avaliador_nome = serializers.CharField(source='fk_terapeuta_avaliador.fk_associado.nome', read_only=True)
+    avaliado_nome = serializers.CharField(source='fk_associado_avaliado.nome', read_only=True)
+    
+    class Meta:
+        model = models.Selecao
+        fields = '__all__'
+        
+
 

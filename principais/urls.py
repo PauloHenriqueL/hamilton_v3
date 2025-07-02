@@ -14,7 +14,9 @@ urlpatterns = [
     path('api/v1/consulta/<int:pk>/', views.ConsultaRetrieveUpdateDestroyAPIView.as_view(), name='consulta-detail-api'),
 
     path('altadesistencia/nova/', views.AltaDesistenciaCreateView.as_view(), name='altadesistencia-create'),
-    
+
+    path('match/nova/', views.MatchCreateView.as_view(), name='match-create'),
+    path('relatorio/', views.gerar_relatorio, name='gerar-relatorio'),
     path('api/v1/paciente/', views.PacienteListCreateAPIView.as_view(), name='paciente-list-create-api'),
     path('api/v1/paciente/<int:pk>/', views.PacienteRetrieveUpdateDestroyAPIView.as_view(), name='paciente-detail-api'),
     
@@ -23,6 +25,9 @@ urlpatterns = [
 
     path('api/v1/avaliacao', views.AvaliacaoListCreateAPIView.as_view(), name='avaliacao-list'),
     path('api/v1/avaliacao/<int:pk>', views.AvaliacaoRetrieveUpdateDestroyAPIView.as_view(), name='avaliacao-update'),
+
+    path('api/v1/selecao/', views.SelecaoListCreateAPIView.as_view(), name='selecao-list-create-api'),
+    path('api/v1/selecao/<int:pk>/', views.SelecaoRetrieveUpdateDestroyAPIView.as_view(), name='selecao-detail-api'),
 
     path('api/v1/altadesistencia', views.AltadesistenciaListCreateAPIView.as_view(), name='altadesistencia-list'),
     path('api/v1/altadesistencia/<int:pk>', views.AltadesistenciaRetrieveUpdateDestroyAPIView.as_view(), name='altadesistencia-update'),

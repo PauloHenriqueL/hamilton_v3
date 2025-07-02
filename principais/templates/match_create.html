@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}
+ALLOS - Cadastrar Match
+{% endblock %}
+
+{% block content %}
+  <div class="container mt-4">
+    <h3 class="display-4">Cadastrar Match</h3>
+
+    <div class="card">
+      <div class="card-body">
+        <form method="post" class="form" novalidate>
+          {% csrf_token %}
+          
+          {% if form.errors %}
+          <div class="alert alert-danger">
+            Por favor, corrija os erros abaixo.
+          </div>
+          {% endif %}
+          
+          <div class="row g-3">
+
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.fk_terapeuta.id_for_label }}" class="form-label">{{ form.fk_terapeuta.label }}</label>
+              {{ form.fk_terapeuta }}
+              {% if form.fk_terapeuta.errors %}
+                <div class="invalid-feedback d-block">{{ form.fk_terapeuta.errors }}</div>
+              {% endif %}
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.fk_paciente.id_for_label }}" class="form-label">{{ form.fk_paciente.label }}</label>
+              {{ form.fk_paciente }}
+              {% if form.fk_paciente.errors %}
+                <div class="invalid-feedback d-block">{{ form.fk_paciente.errors }}</div>
+              {% endif %}
+            </div>
+        
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.dat_consulta.id_for_label }}" class="form-label">{{ form.dat_consulta.label }}</label>
+              {{ form.dat_consulta }}
+              {% if form.dat_consulta.errors %}
+                <div class="invalid-feedback d-block">{{ form.dat_consulta.errors }}</div>
+              {% endif %}
+            </div>
+            
+
+          </div>
+          
+          <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Salvar Match</button>
+            <a href="{% url 'consulta-list' %}" class="btn btn-secondary ms-2">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+{% endblock %}

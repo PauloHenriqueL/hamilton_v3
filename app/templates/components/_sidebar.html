@@ -25,6 +25,14 @@
           {% endif %}
           {% if perms.principais.view_consulta %}
             <li>
+              <a href="{% url 'match-create' %}" class="nav-link px-0 align-middle">
+                <i class="bi bi-clipboard2-plus fs-4"></i>
+                <span class="ms-1">Match</span>
+              </a>
+            </li>
+          {% endif %}
+          {% if perms.principais.view_consulta %}
+            <li>
               <a href="{% url 'altadesistencia-create' %}" class="nav-link px-0 align-middle">
                 <i class="bi bi-person-check-fill fs-4"></i>
                 <span class="ms-1">Altas</span>

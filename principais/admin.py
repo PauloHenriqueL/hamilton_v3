@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.db.models import Count, Max, Q
-from .models import Associado, Paciente, Terapeuta, Consulta, Avaliacao, Altadesistencia, Match
+from .models import Associado, Paciente, Selecao, Terapeuta, Consulta, Avaliacao, Altadesistencia, Match
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.contrib.admin import SimpleListFilter
@@ -142,6 +142,61 @@ class AssociadoAdmin(admin.ModelAdmin):
         return obj.usuario.username if obj.usuario else "Sem usuário"
     get_usuario.short_description = "Usuário"
     get_usuario.admin_order_field = 'usuario__username'
+
+@admin.register(Selecao)
+class SelecaoAdmin(admin.ModelAdmin):
+    list_display = [
+        'pk_selecao',
+        'get_avaliador_nome',
+        'get_avaliado_nome', 
+        'dat_avaliacao',
+        'estagio_mudanca',
+        'estrutura',
+        'acolhimento'
+    ]
+    
+    list_filter = [
+        'dat_avaliacao',
+        'estagio_mudanca',
+        'estrutura',
+        'acolhimento',
+        'fk_terapeuta_avaliador__fk_associado__setores'
+    ]
+    
+    search_fields = [
+        'fk_terapeuta_avaliador__fk_associado__nome',
+        'fk_associado_avaliado__nome'
+    ]
+    
+    date_hierarchy = 'dat_avaliacao'
+    
+    
+    # Métodos para exibir nomes nas colunas
+    def get_avaliador_nome(self, obj):
+        return obj.fk_terapeuta_avaliador.fk_associado.nome
+    get_avaliador_nome.short_description = 'Avaliador'
+    get_avaliador_nome.admin_order_field = 'fk_terapeuta_avaliador__fk_associado__nome'
+    
+    def get_avaliado_nome(self, obj):
+        return obj.fk_associado_avaliado.nome
+    get_avaliado_nome.short_description = 'Avaliado'
+    get_avaliado_nome.admin_order_field = 'fk_associado_avaliado__nome'
+    
+    # Otimizar queries
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'fk_terapeuta_avaliador__fk_associado',
+            'fk_associado_avaliado'
+        )
+    
+    # Personalizar formulário
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "fk_terapeuta_avaliador":
+            kwargs["queryset"] = Terapeuta.objects.select_related('fk_associado').filter(is_active=True)
+        if db_field.name == "fk_associado_avaliado":
+            kwargs["queryset"] = Associado.objects.filter(is_active=True)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
 
 
 

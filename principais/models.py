@@ -125,7 +125,6 @@ class Associado(models.Model):
         """Retorna todos os associados que são decanos"""
         return cls.objects.filter(setores__setor__icontains='decano', is_active=True).distinct()
 
-    
 
 class Paciente(models.Model):
     pk_paciente = models.AutoField(primary_key=True, verbose_name="ID")
@@ -453,9 +452,6 @@ class Match(models.Model):
         verbose_name="Paciente"
     )
     dat_consulta = models.DateField(verbose_name="Data da consulta")
-    
-
-
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Data de Criação")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Data de Atualização")
 
@@ -465,3 +461,94 @@ class Match(models.Model):
         verbose_name_plural = "Match"
 
 
+
+class Selecao(models.Model):
+    pk_selecao = models.AutoField(primary_key=True, verbose_name="ID")
+    fk_terapeuta_avaliador = models.ForeignKey(
+        Terapeuta,
+        on_delete=models.CASCADE,
+        db_column='fk_terapeuta_avaliador',
+        verbose_name="Avaliador"
+    )
+    fk_associado_avaliado = models.ForeignKey(
+        Associado,
+        on_delete=models.CASCADE,
+        db_column='fk_associado_avaliado',
+        verbose_name="Avaliado"
+    )
+    dat_avaliacao = models.DateField(verbose_name="Data da avaliação")
+    
+    CHOICES = [
+        (-9, "-9"), (-3, "-3"), (-1, "-1"), (0, "0"),
+        (1, "1"), (3, "3"), (9, "9")
+    ]
+    
+    estagio_mudanca = models.IntegerField(
+        choices=CHOICES,
+        verbose_name="Estágio de Mudança",
+        help_text="Avalie a capacidade do terapeuta em identificar e trabalhar adequadamente com o estágio de mudança do paciente."
+    )
+    estrutura = models.IntegerField(
+        choices=CHOICES,
+        verbose_name="Estrutura: Coerência e Consistência",
+        help_text="Avalie a coerência e consistência da estrutura da sessão conduzida pelo terapeuta."
+    )
+    encerramento = models.IntegerField(
+        choices=CHOICES,
+        verbose_name="Encerramento | Abertura",
+        help_text="Avalie a habilidade do terapeuta em abrir e encerrar adequadamente a sessão."
+    )
+    acolhimento = models.IntegerField(
+        choices=CHOICES,
+        verbose_name="Sensação de Acolhimento",
+        help_text="Avalie a capacidade do terapeuta em criar um ambiente acolhedor para o paciente."
+    )
+    seguranca_terapeuta = models.IntegerField(
+        choices=CHOICES,
+        verbose_name="Segurança do Terapeuta",
+        help_text="Avalie o nível de segurança que o terapeuta transmite durante a sessão."
+    )
+    seguranca_metodo = models.IntegerField(
+        choices=CHOICES,
+        verbose_name="Segurança do Método",
+        help_text="Avalie a confiança do terapeuta no método terapêutico aplicado."
+    )
+    aprofundar = models.IntegerField(
+        choices=CHOICES,
+        verbose_name="Capacidade de Aprofundar",
+        help_text="Avalie a habilidade do terapeuta em aprofundar questões relevantes durante a sessão."
+    )
+    hipoteses = models.IntegerField(
+        choices=CHOICES,
+        verbose_name="Construção de Hipóteses",
+        help_text="Avalie a capacidade do terapeuta em construir hipóteses clínicas adequadas."
+    )
+    interpretacao = models.IntegerField(
+        choices=CHOICES,
+        verbose_name="Capacidade Interpretativa",
+        help_text="Avalie a habilidade interpretativa do terapeuta durante a sessão."
+    )
+    frase_timing = models.IntegerField(
+        choices=CHOICES,
+        verbose_name="Construção de Frase & Timing",
+        help_text="Avalie a construção de frases e o timing do terapeuta durante a intervenção."
+    )
+    corpo_setting = models.IntegerField(
+        choices=CHOICES,
+        verbose_name="Corpo & Setting",
+        help_text="Avalie a linguagem corporal e o manejo do setting terapêutico."
+    )
+    insight_potencia = models.IntegerField(
+        choices=CHOICES,
+        verbose_name="Insight & Potência",
+        help_text="Avalie a capacidade do terapeuta em gerar insights e potência terapêutica."
+    )
+    
+    class Meta:
+        db_table = "selecao"
+        verbose_name = "Seleção"
+        verbose_name_plural = "Seleções"
+        ordering = ['-dat_avaliacao']
+    
+    def __str__(self):
+        return f"Seleção: {self.fk_terapeuta_avaliador} -> {self.fk_associado_avaliado} ({self.dat_avaliacao})"

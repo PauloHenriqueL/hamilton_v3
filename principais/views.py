@@ -1,3 +1,6 @@
+import csv
+import json
+import io
 from rest_framework import generics
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse_lazy
@@ -6,14 +9,832 @@ from . import models, forms, serializers
 from django.shortcuts import render, redirect
 from rest_framework.permissions import IsAuthenticated
 from app.permissions import GlobalDefaultPermission
-from django.db.models import Q, Count, Prefetch
-from django.http import JsonResponse
+from django.db.models import Q, Count, Prefetch, Avg, Sum
+from django.http import JsonResponse, HttpResponse
 from .models import Paciente, Terapeuta, Associado
 from django.views.decorators.http import require_GET
 from decimal import Decimal
 from django.contrib import messages
 from django.core.exceptions import ObjectDoesNotExist
+from django.contrib.auth.decorators import login_required, permission_required
+from django.utils import timezone
+from datetime import datetime, timedelta
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Border, Side
+from acessorios.models import Captacao
 
+
+
+@login_required
+@permission_required('principais.view_consulta')
+def gerar_relatorio(request):
+    """
+    Gera relatórios em CSV ou Excel baseado nos parâmetros da requisição
+    """
+    tipo_relatorio = request.GET.get('tipo')
+    formato = request.GET.get('formato', 'csv')  # csv ou excel
+    
+    if not tipo_relatorio:
+        return HttpResponse('Tipo de relatório não especificado', status=400)
+    
+    # Definir nome do arquivo e extensão
+    timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+    if formato == 'excel':
+        filename = f'{tipo_relatorio}_{timestamp}.xlsx'
+        content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    else:  # CSV
+        filename = f'{tipo_relatorio}_{timestamp}.csv'
+        content_type = 'text/csv; charset=utf-8'
+    
+    # Preparar response
+    response = HttpResponse(content_type=content_type)
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    if formato == 'csv':
+        response.write('\ufeff')  # BOM para UTF-8
+        writer = csv.writer(response)
+    else:  # Excel
+        writer = None
+    
+    # Gerar relatório baseado no tipo
+    if tipo_relatorio == 'associado':
+        return _gerar_relatorio_associado(response, writer, formato)
+    elif tipo_relatorio == 'paciente':
+        return _gerar_relatorio_paciente(response, writer, formato)
+    elif tipo_relatorio == 'terapeuta':
+        return _gerar_relatorio_terapeuta(response, writer, formato)
+    elif tipo_relatorio == 'avaliacao':
+        return _gerar_relatorio_avaliacao(response, writer, formato)
+    elif tipo_relatorio == 'consulta':
+        return _gerar_relatorio_consulta(response, writer, formato)
+    elif tipo_relatorio == 'dashboard':
+        return _gerar_relatorio_dashboard(response, writer, formato)
+    elif tipo_relatorio == 'metricas_terapeuta':
+        return _gerar_relatorio_metricas_terapeuta(response, writer, formato)
+    elif tipo_relatorio == 'altadesistencia':
+        return _gerar_relatorio_altadesistencia(response, writer, formato)
+    elif tipo_relatorio == 'selecao':
+        return _gerar_relatorio_selecao(response, writer, formato)
+    elif tipo_relatorio == 'captacao':
+        return _gerar_relatorio_captacao(response, writer, formato)
+    else:
+        return HttpResponse('Tipo de relatório inválido', status=400)
+
+
+def _criar_workbook_formatado():
+    """Cria um workbook Excel com formatação padrão"""
+    wb = Workbook()
+    ws = wb.active
+    
+    # Estilos
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    return wb, ws, header_font, header_fill, border
+
+
+def _finalizar_excel(wb, response):
+    """Finaliza e salva o workbook Excel no response"""
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    response.write(buffer.getvalue())
+    buffer.close()
+    return response
+
+
+def _gerar_relatorio_associado(response, writer, formato):
+    """Gera relatório de Associados"""
+    associados = Associado.objects.all().select_related().prefetch_related('setores')
+    
+    if formato == 'csv':
+        writer.writerow(['ID', 'Nome', 'Email', 'Telefone', 'CPF', 'Endereco', 'Sexo', 'Data Nascimento', 'Setores', 'Ativo', 'Data Criacao'])
+        for assoc in associados:
+            setores = ', '.join([setor.setor for setor in assoc.setores.all()])
+            writer.writerow([
+                assoc.pk_associado, assoc.nome, assoc.email or '', assoc.telefone,
+                assoc.cpf or '', assoc.endereco, assoc.sexo, 
+                assoc.dat_nascimento or '', setores, assoc.is_active, assoc.created_at
+            ])
+    else:  # Excel
+        wb, ws, header_font, header_fill, border = _criar_workbook_formatado()
+        ws.title = "Associados"
+        
+        # Cabeçalhos
+        headers = ['ID', 'Nome', 'Email', 'Telefone', 'CPF', 'Endereço', 'Sexo', 'Data Nascimento', 'Setores', 'Ativo', 'Data Criação']
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = border
+        
+        # Dados
+        for row, assoc in enumerate(associados, 2):
+            setores = ', '.join([setor.setor for setor in assoc.setores.all()])
+            data = [
+                assoc.pk_associado, assoc.nome, assoc.email or '', assoc.telefone,
+                assoc.cpf or '', assoc.endereco, assoc.sexo, 
+                assoc.dat_nascimento or '', setores, 'Sim' if assoc.is_active else 'Não', 
+                assoc.created_at.strftime('%d/%m/%Y %H:%M')
+            ]
+            for col, value in enumerate(data, 1):
+                cell = ws.cell(row=row, column=col, value=value)
+                cell.border = border
+        
+        # Ajustar largura das colunas
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        return _finalizar_excel(wb, response)
+    
+    return response
+
+
+def _gerar_relatorio_altadesistencia(response, writer, formato):
+    """Gera relatório de Alta/Desistência"""
+    altadesistencias = models.Altadesistencia.objects.all().select_related(
+        'fk_terapeuta__fk_associado', 'fk_paciente'
+    )
+    
+    if formato == 'csv':
+        writer.writerow([
+            'ID', 'Terapeuta', 'Paciente', 'Data Sessão', 'Cancelador', 
+            'Motivo Cancelamento', 'Momento', 'Alta/Desistência', 'Data Criação'
+        ])
+        for alta in altadesistencias:
+            writer.writerow([
+                alta.pk_alta_desistencia,
+                alta.fk_terapeuta.fk_associado.nome,
+                alta.fk_paciente.nome,
+                alta.dat_sessao or '',
+                alta.cancelador or '',
+                alta.motivo_cancel or '',
+                alta.momento or '',
+                alta.alta_desistencia or '',
+                alta.created_at
+            ])
+    else:  # Excel
+        wb, ws, header_font, header_fill, border = _criar_workbook_formatado()
+        ws.title = "Alta_Desistencia"
+        
+        # Cabeçalhos
+        headers = [
+            'ID', 'Terapeuta', 'Paciente', 'Data Sessão', 'Cancelador', 
+            'Motivo Cancelamento', 'Momento', 'Alta/Desistência', 'Data Criação'
+        ]
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = border
+        
+        # Dados
+        for row, alta in enumerate(altadesistencias, 2):
+            data = [
+                alta.pk_alta_desistencia,
+                alta.fk_terapeuta.fk_associado.nome,
+                alta.fk_paciente.nome,
+                alta.dat_sessao.strftime('%d/%m/%Y') if alta.dat_sessao else '',
+                alta.cancelador or '',
+                alta.motivo_cancel or '',
+                alta.momento or '',
+                alta.alta_desistencia or '',
+                alta.created_at.strftime('%d/%m/%Y %H:%M')
+            ]
+            for col, value in enumerate(data, 1):
+                cell = ws.cell(row=row, column=col, value=value)
+                cell.border = border
+        
+        # Ajustar largura das colunas
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        return _finalizar_excel(wb, response)
+    
+    return response
+
+
+def _gerar_relatorio_selecao(response, writer, formato):
+    """Gera relatório de Seleções (Avaliações de Terapeutas)"""
+    selecoes = models.Selecao.objects.all().select_related(
+        'fk_terapeuta_avaliador__fk_associado', 'fk_associado_avaliado'
+    )
+    
+    if formato == 'csv':
+        writer.writerow([
+            'ID', 'Avaliador', 'Avaliado', 'Data Avaliação', 'Estágio Mudança',
+            'Estrutura', 'Encerramento', 'Acolhimento', 'Segurança Terapeuta',
+            'Segurança Método', 'Aprofundar', 'Hipóteses', 'Interpretação',
+            'Frase & Timing', 'Corpo & Setting', 'Insight & Potência',
+            'Média Geral', 'Data Criação'
+        ])
+        for selecao in selecoes:
+            # Calcular média geral das avaliações
+            campos_avaliacao = [
+                selecao.estagio_mudanca, selecao.estrutura, selecao.encerramento,
+                selecao.acolhimento, selecao.seguranca_terapeuta, selecao.seguranca_metodo,
+                selecao.aprofundar, selecao.hipoteses, selecao.interpretacao,
+                selecao.frase_timing, selecao.corpo_setting, selecao.insight_potencia
+            ]
+            media_geral = sum(campos_avaliacao) / len(campos_avaliacao)
+            
+            writer.writerow([
+                selecao.pk_selecao,
+                selecao.fk_terapeuta_avaliador.fk_associado.nome,
+                selecao.fk_associado_avaliado.nome,
+                selecao.dat_avaliacao,
+                selecao.estagio_mudanca,
+                selecao.estrutura,
+                selecao.encerramento,
+                selecao.acolhimento,
+                selecao.seguranca_terapeuta,
+                selecao.seguranca_metodo,
+                selecao.aprofundar,
+                selecao.hipoteses,
+                selecao.interpretacao,
+                selecao.frase_timing,
+                selecao.corpo_setting,
+                selecao.insight_potencia,
+                f'{media_geral:.2f}',
+                selecao.created_at if hasattr(selecao, 'created_at') else ''
+            ])
+    else:  # Excel
+        wb, ws, header_font, header_fill, border = _criar_workbook_formatado()
+        ws.title = "Selecoes"
+        
+        # Cabeçalhos
+        headers = [
+            'ID', 'Avaliador', 'Avaliado', 'Data Avaliação', 'Estágio Mudança',
+            'Estrutura', 'Encerramento', 'Acolhimento', 'Segurança Terapeuta',
+            'Segurança Método', 'Aprofundar', 'Hipóteses', 'Interpretação',
+            'Frase & Timing', 'Corpo & Setting', 'Insight & Potência',
+            'Média Geral'
+        ]
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = border
+        
+        # Dados
+        for row, selecao in enumerate(selecoes, 2):
+            # Calcular média geral das avaliações
+            campos_avaliacao = [
+                selecao.estagio_mudanca, selecao.estrutura, selecao.encerramento,
+                selecao.acolhimento, selecao.seguranca_terapeuta, selecao.seguranca_metodo,
+                selecao.aprofundar, selecao.hipoteses, selecao.interpretacao,
+                selecao.frase_timing, selecao.corpo_setting, selecao.insight_potencia
+            ]
+            media_geral = sum(campos_avaliacao) / len(campos_avaliacao)
+            
+            data = [
+                selecao.pk_selecao,
+                selecao.fk_terapeuta_avaliador.fk_associado.nome,
+                selecao.fk_associado_avaliado.nome,
+                selecao.dat_avaliacao.strftime('%d/%m/%Y'),
+                selecao.estagio_mudanca,
+                selecao.estrutura,
+                selecao.encerramento,
+                selecao.acolhimento,
+                selecao.seguranca_terapeuta,
+                selecao.seguranca_metodo,
+                selecao.aprofundar,
+                selecao.hipoteses,
+                selecao.interpretacao,
+                selecao.frase_timing,
+                selecao.corpo_setting,
+                selecao.insight_potencia,
+                f'{media_geral:.2f}'
+            ]
+            for col, value in enumerate(data, 1):
+                cell = ws.cell(row=row, column=col, value=value)
+                cell.border = border
+        
+        # Ajustar largura das colunas
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        return _finalizar_excel(wb, response)
+    
+    return response
+
+
+def _gerar_relatorio_captacao(response, writer, formato):
+    """Gera relatório de Captações com quantidade de pacientes por captação"""
+    # Buscar captações com contagem de pacientes
+    captacoes_com_contagem = Captacao.objects.annotate(
+        total_pacientes=Count('paciente', filter=Q(paciente__is_active=True)),
+        total_pacientes_inativos=Count('paciente', filter=Q(paciente__is_active=False)),
+        total_geral=Count('paciente')
+    ).order_by('-total_pacientes')
+    
+    if formato == 'csv':
+        writer.writerow([
+            'ID', 'Nome da Captação', 'Pacientes Ativos', 'Pacientes Inativos', 
+            'Total de Pacientes', 'Ativo', 'Data Criação'
+        ])
+        for captacao in captacoes_com_contagem:
+            writer.writerow([
+                captacao.pk_captacao,
+                captacao.nome,
+                captacao.total_pacientes,
+                captacao.total_pacientes_inativos,
+                captacao.total_geral,
+                'Sim' if captacao.is_active else 'Não',
+                captacao.created_at
+            ])
+            
+        # Adicionar estatísticas resumo
+        writer.writerow([])  # Linha vazia
+        writer.writerow(['=== ESTATÍSTICAS RESUMO ==='])
+        
+        total_captacoes_ativas = captacoes_com_contagem.filter(is_active=True).count()
+        total_captacoes_inativas = captacoes_com_contagem.filter(is_active=False).count()
+        captacao_mais_usada = captacoes_com_contagem.first()
+        
+        writer.writerow(['Total de Captações Ativas', total_captacoes_ativas])
+        writer.writerow(['Total de Captações Inativas', total_captacoes_inativas])
+        if captacao_mais_usada:
+            writer.writerow(['Captação Mais Utilizada', f'{captacao_mais_usada.nome} ({captacao_mais_usada.total_pacientes} pacientes)'])
+            
+    else:  # Excel
+        wb, ws, header_font, header_fill, border = _criar_workbook_formatado()
+        ws.title = "Captacoes"
+        
+        # Cabeçalhos
+        headers = [
+            'ID', 'Nome da Captação', 'Pacientes Ativos', 'Pacientes Inativos', 
+            'Total de Pacientes', 'Ativo', 'Data Criação'
+        ]
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = border
+        
+        # Dados
+        row_num = 2
+        for captacao in captacoes_com_contagem:
+            data = [
+                captacao.pk_captacao,
+                captacao.nome,
+                captacao.total_pacientes,
+                captacao.total_pacientes_inativos,
+                captacao.total_geral,
+                'Sim' if captacao.is_active else 'Não',
+                captacao.created_at.strftime('%d/%m/%Y %H:%M')
+            ]
+            for col, value in enumerate(data, 1):
+                cell = ws.cell(row=row_num, column=col, value=value)
+                cell.border = border
+            row_num += 1
+        
+        # Adicionar estatísticas resumo
+        row_num += 2  # Pular uma linha
+        resumo_header = ws.cell(row=row_num, column=1, value="ESTATÍSTICAS RESUMO")
+        resumo_header.font = header_font
+        resumo_header.fill = header_fill
+        row_num += 1
+        
+        total_captacoes_ativas = captacoes_com_contagem.filter(is_active=True).count()
+        total_captacoes_inativas = captacoes_com_contagem.filter(is_active=False).count()
+        captacao_mais_usada = captacoes_com_contagem.first()
+        
+        estatisticas = [
+            ['Total de Captações Ativas', total_captacoes_ativas],
+            ['Total de Captações Inativas', total_captacoes_inativas],
+        ]
+        
+        if captacao_mais_usada:
+            estatisticas.append(['Captação Mais Utilizada', f'{captacao_mais_usada.nome} ({captacao_mais_usada.total_pacientes} pacientes)'])
+        
+        for stat_nome, stat_valor in estatisticas:
+            ws.cell(row=row_num, column=1, value=stat_nome).border = border
+            ws.cell(row=row_num, column=2, value=stat_valor).border = border
+            row_num += 1
+        
+        # Ajustar largura das colunas
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        return _finalizar_excel(wb, response)
+    
+    return response
+
+
+def _gerar_relatorio_paciente(response, writer, formato):
+
+    pacientes = Paciente.objects.all().select_related('fk_clinica', 'fk_modalidade', 'fk_captacao')
+    
+    if formato == 'csv':
+        writer.writerow(['ID', 'Nome', 'Email', 'Telefone', 'Clinica', 'Modalidade', 'Captacao', 'Valor Sessao', 'Data Nascimento', 'Ativo', 'Data Criacao'])
+        for pac in pacientes:
+            writer.writerow([
+                pac.pk_paciente, pac.nome, pac.email or '', pac.telefone,
+                pac.fk_clinica.clinica, pac.fk_modalidade.modalidade, pac.fk_captacao.nome,
+                pac.vlr_sessao, pac.dat_nascimento or '', pac.is_active, pac.created_at
+            ])
+    else:  # Excel
+        wb, ws, header_font, header_fill, border = _criar_workbook_formatado()
+        ws.title = "Pacientes"
+        
+        # Cabeçalhos
+        headers = ['ID', 'Nome', 'Email', 'Telefone', 'Clínica', 'Modalidade', 'Captação', 'Valor Sessão', 'Data Nascimento', 'Ativo', 'Data Criação']
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = border
+        
+        # Dados
+        for row, pac in enumerate(pacientes, 2):
+            data = [
+                pac.pk_paciente, pac.nome, pac.email or '', pac.telefone,
+                pac.fk_clinica.clinica, pac.fk_modalidade.modalidade, pac.fk_captacao.nome,
+                float(pac.vlr_sessao), pac.dat_nascimento or '', 'Sim' if pac.is_active else 'Não',
+                pac.created_at.strftime('%d/%m/%Y %H:%M')
+            ]
+            for col, value in enumerate(data, 1):
+                cell = ws.cell(row=row, column=col, value=value)
+                cell.border = border
+        
+        # Ajustar largura das colunas
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        return _finalizar_excel(wb, response)
+    
+    return response
+
+
+def _gerar_relatorio_terapeuta(response, writer, formato):
+    """Gera relatório de Terapeutas"""
+    terapeutas = Terapeuta.objects.all().select_related(
+        'fk_associado', 'fk_decano', 'fk_abordagem', 'fk_nucleo', 'fk_clinica', 'fk_modalidade'
+    )
+    
+    if formato == 'csv':
+        writer.writerow(['ID', 'Nome', 'Decano', 'Abordagem', 'Nucleo', 'Clinica', 'Modalidade', 'Ativo', 'Data Criacao'])
+        for ter in terapeutas:
+            writer.writerow([
+                ter.pk_terapeuta, ter.fk_associado.nome, ter.fk_decano.nome,
+                ter.fk_abordagem.abordagem, ter.fk_nucleo.nucleo, ter.fk_clinica.clinica,
+                ter.fk_modalidade.modalidade, ter.is_active, ter.created_at
+            ])
+    else:  # Excel
+        wb, ws, header_font, header_fill, border = _criar_workbook_formatado()
+        ws.title = "Terapeutas"
+        
+        # Cabeçalhos
+        headers = ['ID', 'Nome', 'Decano', 'Abordagem', 'Núcleo', 'Clínica', 'Modalidade', 'Ativo', 'Data Criação']
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = border
+        
+        # Dados
+        for row, ter in enumerate(terapeutas, 2):
+            data = [
+                ter.pk_terapeuta, ter.fk_associado.nome, ter.fk_decano.nome,
+                ter.fk_abordagem.abordagem, ter.fk_nucleo.nucleo, ter.fk_clinica.clinica,
+                ter.fk_modalidade.modalidade, 'Sim' if ter.is_active else 'Não',
+                ter.created_at.strftime('%d/%m/%Y %H:%M')
+            ]
+            for col, value in enumerate(data, 1):
+                cell = ws.cell(row=row, column=col, value=value)
+                cell.border = border
+        
+        # Ajustar largura das colunas
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        return _finalizar_excel(wb, response)
+    
+    return response
+
+
+def _gerar_relatorio_avaliacao(response, writer, formato):
+    """Gera relatório de Avaliações"""
+    avaliacoes = models.Avaliacao.objects.all().select_related('fk_terapeuta__fk_associado', 'fk_paciente')
+    
+    if formato == 'csv':
+        writer.writerow(['ID', 'Terapeuta', 'Paciente', 'Data Consulta', 'Individual', 'Interpessoal', 'Social', 'Geral', 'Qualidade Geral', 'Momento', 'Data Criacao'])
+        for av in avaliacoes:
+            writer.writerow([
+                av.pk_avaliacao, av.fk_terapeuta.fk_associado.nome, av.fk_paciente.nome,
+                av.dat_consulta, av.individual or '', av.interpessoal or '', av.social or '',
+                av.geral or '', av.qualidade_geral or '', av.momento, av.created_at
+            ])
+    else:  # Excel
+        wb, ws, header_font, header_fill, border = _criar_workbook_formatado()
+        ws.title = "Avaliações"
+        
+        # Cabeçalhos
+        headers = ['ID', 'Terapeuta', 'Paciente', 'Data Consulta', 'Individual', 'Interpessoal', 'Social', 'Geral', 'Qualidade Geral', 'Momento', 'Data Criação']
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = border
+        
+        # Dados
+        for row, av in enumerate(avaliacoes, 2):
+            data = [
+                av.pk_avaliacao, av.fk_terapeuta.fk_associado.nome, av.fk_paciente.nome,
+                av.dat_consulta.strftime('%d/%m/%Y'), av.individual or '', av.interpessoal or '', av.social or '',
+                av.geral or '', av.qualidade_geral or '', av.momento, 
+                av.created_at.strftime('%d/%m/%Y %H:%M')
+            ]
+            for col, value in enumerate(data, 1):
+                cell = ws.cell(row=row, column=col, value=value)
+                cell.border = border
+        
+        # Ajustar largura das colunas
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        return _finalizar_excel(wb, response)
+    
+    return response
+
+
+def _gerar_relatorio_consulta(response, writer, formato):
+    """Gera relatório de Consultas"""
+    consultas = models.Consulta.objects.all().select_related('fk_terapeuta__fk_associado', 'fk_paciente')
+    
+    if formato == 'csv':
+        writer.writerow(['ID', 'Terapeuta', 'Paciente', 'Data Consulta', 'Valor Consulta', 'Valor Pago', 'Realizada', 'Data Criacao'])
+        for cons in consultas:
+            writer.writerow([
+                cons.pk_consulta, cons.fk_terapeuta.fk_associado.nome, cons.fk_paciente.nome,
+                cons.dat_consulta, cons.vlr_consulta, cons.vlr_pago or '', cons.is_realizado, cons.created_at
+            ])
+    else:  # Excel
+        wb, ws, header_font, header_fill, border = _criar_workbook_formatado()
+        ws.title = "Consultas"
+        
+        # Cabeçalhos
+        headers = ['ID', 'Terapeuta', 'Paciente', 'Data Consulta', 'Valor Consulta', 'Valor Pago', 'Realizada', 'Data Criação']
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = border
+        
+        # Dados
+        for row, cons in enumerate(consultas, 2):
+            data = [
+                cons.pk_consulta, cons.fk_terapeuta.fk_associado.nome, cons.fk_paciente.nome,
+                cons.dat_consulta.strftime('%d/%m/%Y'), float(cons.vlr_consulta), 
+                float(cons.vlr_pago) if cons.vlr_pago else '', 'Sim' if cons.is_realizado else 'Não',
+                cons.created_at.strftime('%d/%m/%Y %H:%M')
+            ]
+            for col, value in enumerate(data, 1):
+                cell = ws.cell(row=row, column=col, value=value)
+                cell.border = border
+        
+        # Ajustar largura das colunas
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        return _finalizar_excel(wb, response)
+    
+    return response
+
+
+def _gerar_relatorio_dashboard(response, writer, formato):
+    """Gera relatório com métricas do dashboard"""
+    # Calcular métricas (você precisará adaptar essa lógica baseada no seu dashboard atual)
+    total_consultas_marcadas = models.Consulta.objects.count()
+    total_consultas_realizadas = models.Consulta.objects.filter(is_realizado=True).count()
+    taxa_adesao = (total_consultas_realizadas / total_consultas_marcadas * 100) if total_consultas_marcadas > 0 else 0
+    
+    receita_total = models.Consulta.objects.filter(vlr_pago__isnull=False).aggregate(total=Sum('vlr_pago'))['total'] or 0
+    pacientes_ativos = models.Paciente.objects.filter(is_active=True).count()
+    terapeutas_ativos = models.Terapeuta.objects.filter(is_active=True).count()
+    
+    if formato == 'csv':
+        writer.writerow(['Metrica', 'Valor'])
+        writer.writerow(['Total Consultas Marcadas', total_consultas_marcadas])
+        writer.writerow(['Total Consultas Realizadas', total_consultas_realizadas])
+        writer.writerow(['Taxa de Adesao (%)', f'{taxa_adesao:.2f}'])
+        writer.writerow(['Receita Total Recebida', f'{receita_total:.2f}'])
+        writer.writerow(['Pacientes Ativos', pacientes_ativos])
+        writer.writerow(['Terapeutas Ativos', terapeutas_ativos])
+        writer.writerow(['Data Geracao', timezone.now().strftime('%Y-%m-%d %H:%M:%S')])
+    else:  # Excel
+        wb, ws, header_font, header_fill, border = _criar_workbook_formatado()
+        ws.title = "Dashboard Métricas"
+        
+        # Cabeçalhos
+        headers = ['Métrica', 'Valor']
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = border
+        
+        # Dados
+        metricas = [
+            ['Total Consultas Marcadas', total_consultas_marcadas],
+            ['Total Consultas Realizadas', total_consultas_realizadas],
+            ['Taxa de Adesão (%)', f'{taxa_adesao:.2f}%'],
+            ['Receita Total Recebida', f'R$ {receita_total:.2f}'],
+            ['Pacientes Ativos', pacientes_ativos],
+            ['Terapeutas Ativos', terapeutas_ativos],
+            ['Data Geração', timezone.now().strftime('%d/%m/%Y %H:%M:%S')]
+        ]
+        
+        for row, (metrica, valor) in enumerate(metricas, 2):
+            ws.cell(row=row, column=1, value=metrica).border = border
+            ws.cell(row=row, column=2, value=valor).border = border
+        
+        # Ajustar largura das colunas
+        ws.column_dimensions['A'].width = 30
+        ws.column_dimensions['B'].width = 20
+        
+        return _finalizar_excel(wb, response)
+    
+    return response
+
+
+def _gerar_relatorio_metricas_terapeuta(response, writer, formato):
+    """Gera relatório de métricas por terapeuta"""
+    terapeutas = models.Terapeuta.objects.filter(is_active=True).select_related('fk_associado')
+    
+    if formato == 'csv':
+        writer.writerow(['Terapeuta', 'Pacientes Ativos', 'Consultas Marcadas', 'Consultas Realizadas', 'Taxa Adesao (%)', 'Valor Recebido', 'Receita Acordada'])
+        
+        for terapeuta in terapeutas:
+            # Calcular métricas por terapeuta
+            consultas_marcadas = models.Consulta.objects.filter(fk_terapeuta=terapeuta).count()
+            consultas_realizadas = models.Consulta.objects.filter(fk_terapeuta=terapeuta, is_realizado=True).count()
+            taxa_adesao = (consultas_realizadas / consultas_marcadas * 100) if consultas_marcadas > 0 else 0
+            
+            valor_recebido = models.Consulta.objects.filter(
+                fk_terapeuta=terapeuta, 
+                vlr_pago__isnull=False
+            ).aggregate(total=Sum('vlr_pago'))['total'] or 0
+            
+            pacientes_ativos = models.Consulta.objects.filter(
+                fk_terapeuta=terapeuta
+            ).values('fk_paciente').distinct().count()
+            
+            # Receita acordada (você pode precisar ajustar essa lógica)
+            receita_acordada = models.Paciente.objects.filter(
+                consulta__fk_terapeuta=terapeuta
+            ).aggregate(total=Sum('vlr_sessao'))['total'] or 0
+            
+            writer.writerow([
+                terapeuta.fk_associado.nome,
+                pacientes_ativos,
+                consultas_marcadas,
+                consultas_realizadas,
+                f'{taxa_adesao:.2f}',
+                f'{valor_recebido:.2f}',
+                f'{receita_acordada:.2f}'
+            ])
+    else:  # Excel
+        wb, ws, header_font, header_fill, border = _criar_workbook_formatado()
+        ws.title = "Métricas por Terapeuta"
+        
+        # Cabeçalhos
+        headers = ['Terapeuta', 'Pacientes Ativos', 'Consultas Marcadas', 'Consultas Realizadas', 'Taxa Adesão (%)', 'Valor Recebido (R$)', 'Receita Acordada (R$)']
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = border
+        
+        # Dados
+        for row, terapeuta in enumerate(terapeutas, 2):
+            # Calcular métricas por terapeuta (mesmo cálculo do CSV)
+            consultas_marcadas = models.Consulta.objects.filter(fk_terapeuta=terapeuta).count()
+            consultas_realizadas = models.Consulta.objects.filter(fk_terapeuta=terapeuta, is_realizado=True).count()
+            taxa_adesao = (consultas_realizadas / consultas_marcadas * 100) if consultas_marcadas > 0 else 0
+            
+            valor_recebido = models.Consulta.objects.filter(
+                fk_terapeuta=terapeuta, 
+                vlr_pago__isnull=False
+            ).aggregate(total=Sum('vlr_pago'))['total'] or 0
+            
+            pacientes_ativos = models.Consulta.objects.filter(
+                fk_terapeuta=terapeuta
+            ).values('fk_paciente').distinct().count()
+            
+            receita_acordada = models.Paciente.objects.filter(
+                consulta__fk_terapeuta=terapeuta
+            ).aggregate(total=Sum('vlr_sessao'))['total'] or 0
+            
+            data = [
+                terapeuta.fk_associado.nome,
+                pacientes_ativos,
+                consultas_marcadas,
+                consultas_realizadas,
+                f'{taxa_adesao:.2f}%',
+                f'R$ {valor_recebido:.2f}',
+                f'R$ {receita_acordada:.2f}'
+            ]
+            
+            for col, value in enumerate(data, 1):
+                cell = ws.cell(row=row, column=col, value=value)
+                cell.border = border
+        
+        # Ajustar largura das colunas
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        return _finalizar_excel(wb, response)
+    
+    return response
 
 @require_GET
 def paciente_valor_sessao(request, pk):
@@ -33,7 +854,7 @@ class ConsultaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     permission_required = 'principais.view_consulta'
 
     def get_queryset(self):
-        # Otimização: Usar select_related para reduzir queries
+
         queryset = models.Consulta.objects.select_related(
             'fk_terapeuta',
             'fk_paciente',
@@ -42,19 +863,14 @@ class ConsultaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             'fk_terapeuta__fk_clinica'
         )
         
-        # Filtrar apenas consultas do terapeuta logado
         try:
-            # Buscar o associado do usuário logado
             associado = Associado.objects.get(usuario=self.request.user)
-            # Buscar o terapeuta relacionado ao associado
             terapeuta = Terapeuta.objects.get(fk_associado=associado)
             queryset = queryset.filter(fk_terapeuta=terapeuta)
         except (Associado.DoesNotExist, Terapeuta.DoesNotExist):
-            # Se não for terapeuta, verificar se é staff para ver todas
             if not self.request.user.is_staff:
                 queryset = queryset.none()
         
-        # Filtragem por nome
         nome = self.request.GET.get('nome')
         if nome:
             queryset = queryset.filter(
@@ -62,10 +878,8 @@ class ConsultaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                 Q(fk_terapeuta__fk_associado__nome__icontains=nome)
             )
         
-        # Ordenação
         order_by = self.request.GET.get('order_by', '-dat_consulta')
-        
-        # Lista de ordenações válidas
+
         valid_orders = [
             'pk_consulta', '-pk_consulta',
             'fk_terapeuta__fk_associado__nome', '-fk_terapeuta__fk_associado__nome',
@@ -188,6 +1002,7 @@ class ConsultaCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView
         messages.success(self.request, f'{quantidade} consulta(s) cadastrada(s) com sucesso! Valor por consulta: R$ {vlr_consulta:.2f}')
         return redirect(self.success_url)
 
+
 class ConsultaDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = models.Consulta
     template_name = 'consulta_detail.html'
@@ -284,6 +1099,53 @@ class ConsultaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView
     def delete(self, request, *args, **kwargs):
         messages.success(request, 'Consulta excluída com sucesso!')
         return super().delete(request, *args, **kwargs)
+
+
+class MatchCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    model = models.Match
+    template_name = 'match_create.html'
+    form_class = forms.MatchForm
+    success_url = reverse_lazy('consulta-list')
+    permission_required = 'principais.add_match'
+    
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        
+        try:
+            # Buscar o associado do usuário logado
+            associado = Associado.objects.get(usuario=self.request.user)
+            # Buscar o terapeuta relacionado ao associado
+            terapeuta = Terapeuta.objects.get(fk_associado=associado)
+            
+            form.fields['fk_terapeuta'].initial = terapeuta.pk_terapeuta
+            form.fields['fk_terapeuta'].widget.attrs.update({
+                'readonly': 'readonly',
+                'style': 'pointer-events: none; background-color: #343a40 !important; color: #ffffff !important; border-color: #495057 !important;'
+            })
+            form.fields['fk_terapeuta'].queryset = form.fields['fk_terapeuta'].queryset.filter(pk=terapeuta.pk_terapeuta)
+            
+        except (Associado.DoesNotExist, Terapeuta.DoesNotExist):
+            # Se não encontrar terapeuta, permitir seleção livre (para staff)
+            pass
+        
+        return form
+    
+    def form_valid(self, form):
+        match = form.save(commit=False)
+        
+        try:
+            associado = Associado.objects.get(usuario=self.request.user)
+            terapeuta = Terapeuta.objects.get(fk_associado=associado)
+            match.fk_terapeuta = terapeuta
+        except (Associado.DoesNotExist, Terapeuta.DoesNotExist):
+            if not match.fk_terapeuta:
+                messages.error(self.request, 'Erro: Terapeuta não foi definido corretamente.')
+                return self.form_invalid(form)
+        
+        match.save()
+        messages.success(self.request, 'Match cadastrada com sucesso!')
+        
+        return redirect(self.success_url)
 
 
 class AltaDesistenciaCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
@@ -430,3 +1292,50 @@ class AltadesistenciaRetrieveUpdateDestroyAPIView(generics.RetrieveDestroyAPIVie
     permission_classes = (IsAuthenticated, GlobalDefaultPermission,)
     queryset = models.Altadesistencia.objects.select_related('fk_terapeuta__fk_associado', 'fk_paciente')
     serializer_class = serializers.AltadesistenciaSerializer
+
+
+
+class SelecaoListCreateAPIView(generics.ListCreateAPIView):
+    permission_classes = (IsAuthenticated, GlobalDefaultPermission,)
+    queryset = models.Selecao.objects.select_related(
+        'fk_terapeuta_avaliador__fk_associado',
+        'fk_associado_avaliado'
+    )
+    serializer_class = serializers.SelecaoSerializer
+    
+    def get_queryset(self):
+        """Filtros opcionais via query params"""
+        queryset = super().get_queryset()
+        
+        # Filtro por avaliador
+        avaliador_id = self.request.query_params.get('avaliador', None)
+        if avaliador_id:
+            queryset = queryset.filter(fk_terapeuta_avaliador_id=avaliador_id)
+            
+        # Filtro por avaliado
+        avaliado_id = self.request.query_params.get('avaliado', None)
+        if avaliado_id:
+            queryset = queryset.filter(fk_associado_avaliado_id=avaliado_id)
+            
+        # Filtro por data
+        data_inicio = self.request.query_params.get('data_inicio', None)
+        data_fim = self.request.query_params.get('data_fim', None)
+        
+        if data_inicio:
+            queryset = queryset.filter(dat_avaliacao__gte=data_inicio)
+        if data_fim:
+            queryset = queryset.filter(dat_avaliacao__lte=data_fim)
+            
+        return queryset.order_by('-dat_avaliacao')
+
+
+
+class SelecaoRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = (IsAuthenticated, GlobalDefaultPermission,)
+    queryset = models.Selecao.objects.select_related(
+        'fk_terapeuta_avaliador__fk_associado',
+        'fk_associado_avaliado'
+    )
+    serializer_class = serializers.SelecaoSerializer
+
+
